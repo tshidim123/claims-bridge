@@ -1,0 +1,50 @@
+.root {
+  --artwork-aspect-ratio: auto;
+  --artwork-fit: cover;
+  --artwork-mobile-aspect-ratio: var(--artwork-aspect-ratio);
+  --artwork-mobile-position: var(--artwork-position);
+  --artwork-position: 50% 50%;
+  position: relative;
+}
+
+.root[data-artwork-ratio="controlled"] {
+  aspect-ratio: var(--artwork-aspect-ratio);
+}
+
+.fallback,
+.picture,
+.image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.fallback { z-index: 0; }
+
+.picture {
+  z-index: 1;
+  display: block;
+}
+
+.image {
+  z-index: 1;
+  display: block;
+  max-width: 100%;
+  object-fit: var(--artwork-fit);
+  object-position: var(--artwork-position);
+  color: transparent;
+}
+
+@media (max-width: 767px) {
+  .root[data-artwork-ratio="controlled"] {
+    aspect-ratio: var(--artwork-mobile-aspect-ratio);
+  }
+
+  .image { object-position: var(--artwork-mobile-position); }
+}
+
+@media print {
+  .picture,
+  .image { display: none; }
+}

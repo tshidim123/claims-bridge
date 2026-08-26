@@ -1,0 +1,35 @@
+{
+  "project": "Claims Bridge",
+  "stack": "Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4 with semantic CSS tokens",
+  "product": "A premium legal-technology website and client claim portal for UK tenancy deposit protection claims",
+  "visualLanguage": [
+    "deep midnight navy environment",
+    "electric royal blue and controlled cyan accents",
+    "warm off-white typography",
+    "illuminated connection paths and document layers",
+    "liquid glass with refractive edge lighting and nested material depth"
+  ],
+  "constraints": [
+    "WCAG-conscious contrast and visible focus states",
+    "keyboard-accessible disclosure mega menu",
+    "purpose-designed full-screen mobile navigation",
+    "Server Components by default and narrow Client Component boundaries",
+    "no continuous WebGL or JavaScript animation loops",
+    "no fake claims, awards, values, reviews, people, or regulatory affiliations",
+    "no generic bento-card or SaaS landing-page composition"
+  ],
+  "sourceReferences": [
+    {
+      "provider": "21st.dev",
+      "name": "Apple Tahoe Liquid Glass Button",
+      "id": 12460,
+      "usage": "Adapted isolated lens, specular rim, and layered-shadow ideas into a lighter CSS material system."
+    },
+    {
+      "provider": "21st.dev",
+      "name": "Navbar Section 2",
+      "id": 18120,
+      "usage": "Adapted the expanding panel and separate mobile disclosure concepts into a bespoke accessible Claims Bridge navigation."
+    }
+  ]
+}
