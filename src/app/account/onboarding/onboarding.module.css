@@ -1,0 +1,11 @@
+.form { display: grid; max-width: 42rem; gap: 1.1rem; padding: clamp(1.25rem, 4vw, 2.5rem); }
+.form label { display: grid; gap: .4rem; color: var(--color-text-muted); font-size: .8rem; }
+.form label span { color: var(--color-text-quiet); font-size: .7rem; }
+.form input, .form select { min-height: 2.9rem; border: 1px solid var(--color-line-strong); border-radius: .5rem; background: rgb(4 13 26 / 70%); padding: .7rem; color: var(--color-text); font: inherit; }
+.note { margin: .5rem 0; color: var(--color-text-quiet); font-size: .72rem; line-height: 1.55; }
+.form form { display: grid; gap: 1.1rem; }
+.form label span, .form label small { color: var(--color-text-quiet); font-size: .7rem; }
+.form label > span, .form label > small { display: block; margin-top: .25rem; }
+.form label > span + input, .form label > small + input { margin-top: .35rem; }
+.form label > span[role="alert"] { color: var(--color-danger); }
+.feedback { margin: 0; color: var(--color-accent-ice); font-size: .8rem; }

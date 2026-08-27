@@ -106,7 +106,7 @@ export function PublicHeader() {
           </nav>
 
           <div className="public-header__actions">
-            <Link className="public-header__sign-in" href="/account">
+            <Link className="public-header__sign-in" href="/sign-in">
               Sign in
             </Link>
             <Link className="button button--small button--primary header-eligibility" href="/check-eligibility">

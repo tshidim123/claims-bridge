@@ -3,6 +3,7 @@ import type {
   AnchorHTMLAttributes,
   ButtonHTMLAttributes,
   ReactNode,
+  Ref,
 } from "react";
 
 import { cn } from "@/lib/utils";
@@ -12,6 +13,7 @@ type ButtonVisualProps = {
   className?: string;
   size?: "small" | "medium" | "large";
   variant?: "primary" | "secondary" | "quiet" | "glass";
+  ref?: Ref<HTMLButtonElement> | Ref<HTMLAnchorElement>;
 };
 
 export function Button({
@@ -19,12 +21,14 @@ export function Button({
   className,
   size = "medium",
   variant = "primary",
+  ref,
   type = "button",
   ...props
 }: ButtonVisualProps & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       className={cn("button", `button--${variant}`, `button--${size}`, className)}
+      ref={ref as Ref<HTMLButtonElement>}
       type={type}
       {...props}
     >
@@ -39,8 +43,10 @@ export function ButtonLink({
   href,
   size = "medium",
   variant = "primary",
+  ref: _ref,
   ...props
 }: ButtonVisualProps & AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
+  void _ref;
   return (
     <Link
       className={cn("button", `button--${variant}`, `button--${size}`, className)}

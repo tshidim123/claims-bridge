@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { getConfiguredSiteUrl, siteDescription } from "@/lib/metadata";
+import { Providers } from "./providers";
 
 import "./globals.css";
 
@@ -46,7 +47,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en-GB" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body>
         <a className="skip-link" href="#main-content">Skip to main content</a>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

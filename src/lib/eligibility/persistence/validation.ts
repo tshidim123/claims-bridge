@@ -1,0 +1,4 @@
+import { z } from "zod";
+import { eligibilityQuestions } from "@/content/eligibility/questions";
+export const assessmentPayloadSchema = z.object({ version: z.literal(1), status: z.enum(["intro", "in-progress", "review", "complete"]), currentStepId: z.string(), outcomeId: z.enum(["REVIEW_RECOMMENDED", "MORE_INFORMATION_NEEDED", "OUTSIDE_CURRENT_SCOPE", "NO_DEPOSIT_PATH", "INDIVIDUAL_REVIEW"]).optional(), answers: z.record(z.string(), z.union([z.string(), z.array(z.string()), z.boolean()])), startedAt: z.string().nullable() }).superRefine((value, ctx) => { const known = new Set(eligibilityQuestions.map((q) => q.id)); for (const key of Object.keys(value.answers)) if (!known.has(key as never)) ctx.addIssue({ code: "custom", path: ["answers", key], message: "Unknown assessment answer." }); });
+export type AssessmentPayload = z.infer<typeof assessmentPayloadSchema>;

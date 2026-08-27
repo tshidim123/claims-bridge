@@ -1,0 +1,10 @@
+.authPage { min-height: 100vh; position: relative; overflow: hidden; background: var(--color-canvas-deep); padding: 2rem clamp(1.25rem, 5vw, 5rem); color: var(--color-text); }
+.authAtmosphere { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 72% 36%, rgb(61 124 255 / 18%), transparent 34rem); }
+.authBrand { position: relative; z-index: 1; display: inline-flex; color: var(--color-text); }
+.authLayout { position: relative; z-index: 1; display: grid; max-width: 74rem; min-height: calc(100vh - 8rem); margin: 3rem auto 0; grid-template-columns: minmax(0, 1fr) minmax(22rem, 28rem); gap: clamp(3rem, 9vw, 9rem); align-items: center; }
+.authLayout h1 { max-width: 10ch; margin: 1rem 0 1.5rem; font-size: clamp(2.8rem, 6vw, 5.8rem); font-weight: 430; letter-spacing: -0.07em; line-height: .94; }
+.authLayout p { max-width: 48ch; color: var(--color-text-muted); line-height: 1.65; }
+.authSurface { min-width: 0; border-radius: var(--radius-2xl); padding: 1.25rem; }
+.configNotice { padding: 2rem; }
+.configNotice h2 { margin: .8rem 0; font-size: 1.5rem; }
+@media (max-width: 700px) { .authPage { padding: 1.25rem; } .authLayout { display: flex; min-height: auto; margin-top: 4rem; flex-direction: column; align-items: stretch; gap: 2.5rem; } .authLayout h1 { font-size: clamp(2.8rem, 13vw, 4rem); } .authSurface { margin-inline: -.2rem; } }

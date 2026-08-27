@@ -1,0 +1,7 @@
+import { auth } from "@clerk/nextjs/server";
+import { AccountPageHeader } from "@/components/account/account-page-header";
+import { GlassSurface } from "@/components/glass/glass-surface";
+import { getClientProfileByClerkId } from "@/lib/clients/repository";
+import { OnboardingForm } from "./onboarding-form";
+import styles from "./onboarding.module.css";
+export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ handoff?: string }> }) { const { handoff } = await searchParams; const { userId } = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY ? await auth() : { userId: null }; const profile = userId && process.env.DATABASE_URL ? await getClientProfileByClerkId(userId) : undefined; return <div className="account-page"><AccountPageHeader title="Start your client profile" description="A small amount of information helps shape a future Claims Bridge relationship. Your details are stored securely in the Claims Bridge database." /><GlassSurface strength="medium"><div className={styles.form}>{!process.env.DATABASE_URL && <p role="alert">Database configuration is required before onboarding can be saved.</p>}<OnboardingForm handoff={handoff} profile={profile ? { firstName: profile.firstName, lastName: profile.lastName, phone: profile.phone ?? "", preferredContactMethod: profile.preferredContactMethod } : undefined} /></div></GlassSurface></div>; }

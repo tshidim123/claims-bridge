@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { AccountNavigation } from "@/components/navigation/account-navigation";
 import { Icon } from "@/components/ui/icon";
+import { AccountIdentity } from "@/components/auth/account-identity";
 
 export function AccountShell({ children }: { children: ReactNode }) {
   return (
@@ -28,6 +29,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
             <strong>Client workspace</strong>
           </div>
           <div className="account-topbar__actions">
+            <AccountIdentity />
             <Link href="/account/notifications" aria-label="Notifications">
               <Icon name="notification" />
             </Link>
