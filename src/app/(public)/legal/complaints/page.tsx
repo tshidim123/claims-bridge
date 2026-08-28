@@ -1,10 +1,7 @@
-import { PageFoundation } from "@/components/layout/page-foundation";
-import { routeFoundations } from "@/content/route-foundations";
-import { createPageMetadata } from "@/lib/metadata";
-
-const content = routeFoundations.complaints;
-export const metadata = createPageMetadata(content.title, content.description);
+import { ComplaintsRoute } from "@/components/public/public-legal-routes";
+import { createPublicMetadata } from "@/config/public-site";
+export const metadata = createPublicMetadata("Claims Bridge complaints", "A transparent framework for raising a Claims Bridge service concern without inventing an unmonitored contact route.", "/complaints");
 
 export default function ComplaintsPage() {
-  return <PageFoundation {...content} />;
+  return <ComplaintsRoute />;
 }

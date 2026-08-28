@@ -1,0 +1,2 @@
+ALTER TABLE "claim_action_requirements" ADD COLUMN "client_request_id" text;--> statement-breakpoint
+ALTER TABLE "claim_action_requirements" ADD CONSTRAINT "claim_action_requirements_client_request_id_unique" UNIQUE("client_request_id");

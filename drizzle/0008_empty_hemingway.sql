@@ -1,0 +1,2 @@
+ALTER TABLE "client_notifications" ADD COLUMN "notification_reference" text NOT NULL;--> statement-breakpoint
+ALTER TABLE "client_notifications" ADD CONSTRAINT "client_notifications_notification_reference_unique" UNIQUE("notification_reference");

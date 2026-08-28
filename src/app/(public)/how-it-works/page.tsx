@@ -1,10 +1,9 @@
-import { PageFoundation } from "@/components/layout/page-foundation";
-import { routeFoundations } from "@/content/route-foundations";
-import { createPageMetadata } from "@/lib/metadata";
+import { EditorialSection, ProcessRail, PublicCta, PublicHero, RelatedResources, ScopeNotice } from "@/components/public/public-editorial";
+import { createPublicMetadata, publicCtas, publicMetadata } from "@/config/public-site";
+import { processSteps } from "@/content/public-site";
 
-const content = routeFoundations.howItWorks;
-export const metadata = createPageMetadata(content.title, content.description);
+export const metadata = createPublicMetadata(...publicMetadata.howItWorks, "/how-it-works");
 
 export default function HowItWorksPage() {
-  return <PageFoundation {...content} />;
+  return <article className="public-page public-how-page"><PublicHero eyebrow="How Claims Bridge works" title="A route you can understand before you commit to it." description="The journey starts with a preliminary check, then gives you a clear decision point before a separate claim record is created." actions={[publicCtas.checkEligibility, { label: "See claim process", href: "/claim-process", variant: "secondary" }]} /><EditorialSection eyebrow="The client journey" title="Connected steps, not a wall of instructions."><ProcessRail steps={processSteps} /></EditorialSection><EditorialSection eyebrow="Built around decisions" title="You remain in control of the transition from assessment to claim."><div className="public-two-column"><div className="public-reading-copy"><p>A persisted eligibility assessment is not a claim. After reviewing a preliminary result, you choose whether to proceed. If you do, Claims Bridge can create a secure case record with its own reference, status, timeline and workspace.</p><p>Further assessment may be required as information is gathered. The system is designed to make that work visible, not to turn an early indication into a guaranteed outcome.</p></div><ScopeNotice title="A preliminary result is not approval">It is an initial indication based on the answers provided. It does not establish legal merit, landlord liability or compensation.</ScopeNotice></div></EditorialSection><EditorialSection eyebrow="Continue exploring" title="Choose the level of detail you need."><RelatedResources links={[{ label: "Claim process", href: "/claim-process", description: "What changes after you choose to proceed." }, { label: "Deposit claims", href: "/deposit-claims", description: "The issue-led service hub." }, { label: "Track your claim", href: "/track-your-claim", description: "How the secure account keeps progress visible." }]} /></EditorialSection><PublicCta /></article>;
 }

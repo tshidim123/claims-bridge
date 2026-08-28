@@ -1,10 +1,10 @@
-import { PageFoundation } from "@/components/layout/page-foundation";
-import { routeFoundations } from "@/content/route-foundations";
-import { createPageMetadata } from "@/lib/metadata";
+import Link from "next/link";
+import { EditorialSection, PublicCta, PublicHero, RelatedResources, ScopeNotice } from "@/components/public/public-editorial";
+import { createPublicMetadata, publicCtas, publicMetadata } from "@/config/public-site";
 
-const content = routeFoundations.support;
-export const metadata = createPageMetadata("Support", content.description);
+export const metadata = createPublicMetadata(...publicMetadata.support, "/support");
 
 export default function SupportPage() {
-  return <PageFoundation {...content} />;
+  const supportRoutes = [["01", "Starting a claim", "Understand eligibility and the difference between an assessment and a claim.", "/check-eligibility"], ["02", "Existing claim", "Use the authenticated workspace for claim stages, evidence, messages and notifications.", "/track-your-claim"], ["03", "Account access", "Sign in securely or find the route back to your client account.", "/sign-in"], ["04", "Evidence and documents", "Read the guide before deciding which records to gather.", "/guides/deposit-protection"], ["05", "Questions and answers", "Browse concise guidance about the process and scope.", "/faqs"], ["06", "Contact", "Use contact routes only when they are monitored and ready.", "/contact"]] as const;
+  return <article className="public-page public-support-page"><PublicHero eyebrow="Support" title="Help should be easy to find, and honest about its limits." description="Choose the route that matches your question. Existing claim information remains inside the secure client account." actions={[publicCtas.support, publicCtas.checkEligibility]} /><EditorialSection eyebrow="Support routes" title="Start with the context, not a generic inbox."><div className="public-support-index">{supportRoutes.map(([index, title, description, href]) => <Link href={href} key={href}><span>{index}</span><div><h3>{title}</h3><p>{description}</p></div><span aria-hidden="true">↗</span></Link>)}</div></EditorialSection><EditorialSection eyebrow="Existing clients" title="Keep claim questions in the claim workspace."><div className="public-two-column"><p className="public-reading-copy">Authenticated clients can follow their claim, review evidence requests, read secure correspondence and see notifications from within the account. There is no public claim lookup.</p><ScopeNotice title="No live chat is offered here">Claims Bridge does not present an unmonitored chat or unverified response promise. Use the available account and published support routes.</ScopeNotice></div><RelatedResources links={[{ label: "Client portal", href: "/client-portal", description: "What the account can do." }, { label: "Track your claim", href: "/track-your-claim", description: "Why sign-in is required." }]} /></EditorialSection><PublicCta /></article>;
 }

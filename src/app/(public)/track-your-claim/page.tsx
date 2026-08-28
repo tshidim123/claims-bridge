@@ -1,0 +1,8 @@
+import Link from "next/link";
+import { EditorialSection, ProcessRail, PublicCta, PublicHero, ScopeNotice } from "@/components/public/public-editorial";
+import { createPublicMetadata, publicCtas, publicMetadata } from "@/config/public-site";
+import { publicStages } from "@/content/public-site";
+
+export const metadata = createPublicMetadata(...publicMetadata.track, "/track-your-claim");
+
+export default function TrackYourClaimPage() { return <article className="public-page public-track-page"><PublicHero eyebrow="Claim tracking" title="Know where the work stands without chasing the paper trail." description="Clients sign in to see the current claim stage, meaningful activity, evidence state, secure messages and notifications in one place." actions={[publicCtas.signIn, publicCtas.howItWorks]} /><EditorialSection eyebrow="What clients can follow" title="The claim workspace keeps context close to the status."><ProcessRail steps={publicStages.map(([index, title, description]) => [index, title, description] as const)} /></EditorialSection><EditorialSection eyebrow="A protected route" title="There is no public claim lookup."><div className="public-two-column"><p className="public-reading-copy">Claim references are useful for correspondence, but they are not passwords. Claim information is available through the authenticated client account, where ownership is checked server-side.</p><ScopeNotice title="Need to begin?">If you do not have a claim yet, start with a preliminary eligibility assessment. A saved assessment does not become a claim automatically.</ScopeNotice></div><Link className="text-link" href="/check-eligibility">Check eligibility <span aria-hidden="true">↗</span></Link></EditorialSection><PublicCta /></article>; }

@@ -44,7 +44,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-GB" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="en-GB" className={`${GeistSans.variable} ${GeistMono.variable}`} data-scroll-behavior="smooth">
       <body>
         <a className="skip-link" href="#main-content">Skip to main content</a>
         <Providers>{children}</Providers>

@@ -1,8 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 const isAccountRoute = createRouteMatcher(["/account(.*)"]);
+const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 const configuredMiddleware = clerkMiddleware(async (auth, req) => {
-  if (isAccountRoute(req)) {
+  if (isAccountRoute(req) || isAdminRoute(req)) {
     const signInUrl = new URL("/sign-in", req.url);
     signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
     await auth.protect({ unauthenticatedUrl: signInUrl.toString() });

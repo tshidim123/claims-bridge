@@ -34,7 +34,7 @@ export function PageFoundation({
           <div className="page-foundation__summary">
             <p>{description}</p>
             <span className="foundation-label">
-              <span aria-hidden="true" /> Phase 1A route foundation
+              <span aria-hidden="true" /> Claims Bridge information route
             </span>
           </div>
         </div>
@@ -47,7 +47,7 @@ export function PageFoundation({
             <p className="eyebrow">Structure prepared</p>
             <h2 id="planned-content-title">Built to grow without changing the foundation.</h2>
             <p>
-              Content and workflow logic will be introduced in a later phase. This page already inherits the public shell, metadata, typography, responsive container and accessibility foundations.
+              This route inherits the Claims Bridge public shell, metadata, typography, responsive container and accessibility foundations.
             </p>
           </section>
 

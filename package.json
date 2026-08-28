@@ -8,12 +8,21 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
-    ,"db:generate": "drizzle-kit generate"
-    ,"db:migrate": "drizzle-kit migrate"
-    ,"db:verify": "node scripts/verify-db.mjs"
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:verify": "node scripts/verify-db.mjs",
+    "env:check": "node scripts/check-env.mjs",
+    "production:check": "node scripts/check-env.mjs --production && npm run content:check && npm run db:verify",
+    "production:smoke": "node scripts/smoke-production.mjs",
+    "staff:bootstrap": "node --import tsx scripts/bootstrap-staff.ts",
+    "admin:bootstrap": "node --import tsx scripts/bootstrap-staff.ts",
+    "test:claims": "node --import tsx --test tests/claims-domain.test.ts",
+    "content:check": "npm run test:claims"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1120.0",
+    "@aws-sdk/s3-request-presigner": "^3.1120.0",
     "@clerk/nextjs": "^7.8.2",
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.45.2",

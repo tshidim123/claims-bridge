@@ -28,28 +28,28 @@ export const depositIssues = [
     title: "Deposit not protected",
     description:
       "You cannot confirm that the deposit was placed in an authorised scheme, or the available records appear incomplete.",
-    href: "/claims/deposit-not-protected",
+    href: "/deposit-claims/not-protected",
   },
   {
     index: "02",
     title: "Deposit protected late",
     description:
       "The protection date may have fallen outside the timeframe relevant to your tenancy and may warrant further assessment.",
-    href: "/claims/deposit-protected-late",
+    href: "/deposit-claims/late-protection",
   },
   {
     index: "03",
     title: "Missing prescribed information",
     description:
       "You may not have received the required deposit and scheme information, or what you received may be incomplete.",
-    href: "/claims/missing-prescribed-information",
+    href: "/deposit-claims/missing-information",
   },
   {
     index: "04",
     title: "Cannot identify the scheme",
     description:
       "Scheme searches and tenancy records have not yet shown where, or whether, the deposit was protected.",
-    href: "/claims/cannot-find-scheme",
+    href: "/deposit-claims/cant-find-my-deposit",
   },
 ] as const;
 
@@ -83,25 +83,25 @@ export const knowledgeGuides = [
     category: "Deposit protection",
     title: "Understanding tenancy deposit protection",
     description: "A foundational guide to the purpose of deposit protection and the records a renter may encounter.",
-    href: "/claims",
+    href: "/deposit-claims",
   },
   {
     category: "Prescribed information",
     title: "What is prescribed information?",
     description: "A plain-language introduction to the information connected with a protected deposit.",
-    href: "/claims/missing-prescribed-information",
+    href: "/deposit-claims/missing-information",
   },
   {
     category: "Evidence",
     title: "What evidence should I keep?",
     description: "A practical starting point for organising tenancy, payment and correspondence records.",
-    href: "/resources/evidence-guide",
+    href: "/guides/deposit-protection",
   },
   {
     category: "Tenant guide",
     title: "What if I cannot find my deposit scheme?",
     description: "Useful checks when the available paperwork does not make the protection position clear.",
-    href: "/claims/cannot-find-scheme",
+    href: "/deposit-claims/cant-find-my-deposit",
   },
 ] as const;
 

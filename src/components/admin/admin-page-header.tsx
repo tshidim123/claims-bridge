@@ -1,0 +1,3 @@
+export function AdminPageHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+  return <header className="admin-page-header"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{description}</p></header>;
+}

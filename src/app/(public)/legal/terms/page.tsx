@@ -1,10 +1,7 @@
-import { PageFoundation } from "@/components/layout/page-foundation";
-import { routeFoundations } from "@/content/route-foundations";
-import { createPageMetadata } from "@/lib/metadata";
-
-const content = routeFoundations.terms;
-export const metadata = createPageMetadata(content.title, content.description);
+import { TermsRoute } from "@/components/public/public-legal-routes";
+import { createPublicMetadata } from "@/config/public-site";
+export const metadata = createPublicMetadata("Claims Bridge terms", "A readable structure for website use, preliminary assessment, account access and the Claims Bridge claim workflow.", "/terms");
 
 export default function TermsPage() {
-  return <PageFoundation {...content} />;
+  return <TermsRoute />;
 }

@@ -12,14 +12,14 @@ export const routeFoundations = {
     title: "Check eligibility",
     description: "A future guided assessment will help renters identify whether their tenancy and deposit circumstances may require closer review.",
     plannedSections: ["Tenancy details", "Deposit timing", "Protection information", "Prescribed information", "Evidence summary", "Clear next steps"],
-    links: [{ label: "How claims work", href: "/how-it-works" }, { label: "Evidence guide", href: "/resources/evidence-guide" }],
+    links: [{ label: "How claims work", href: "/how-it-works" }, { label: "Evidence guide", href: "/guides/deposit-protection" }],
   },
   howItWorks: {
     eyebrow: "Process visibility",
     title: "How claims work",
     description: "A transparent path from an initial eligibility check through evidence collection, review, preparation and resolution.",
     plannedSections: ["Eligibility", "Initial review", "Evidence collection", "Assessment", "Claim preparation", "Progress and resolution"],
-    links: [{ label: "Check eligibility", href: "/check-eligibility" }, { label: "Evidence guide", href: "/resources/evidence-guide" }],
+    links: [{ label: "Check eligibility", href: "/check-eligibility" }, { label: "Evidence guide", href: "/guides/deposit-protection" }],
   },
   claims: {
     eyebrow: "Deposit protection issues",
@@ -33,7 +33,7 @@ export const routeFoundations = {
     title: "Deposit not protected",
     description: "A focused foundation for explaining possible non-protection, relevant dates, scheme searches and the records a renter may hold.",
     plannedSections: ["What protection means", "Key dates", "What to check", "Evidence to preserve", "Potential next steps"],
-    links: [{ label: "Check eligibility", href: "/check-eligibility" }, { label: "Evidence guide", href: "/resources/evidence-guide" }],
+    links: [{ label: "Check eligibility", href: "/check-eligibility" }, { label: "Evidence guide", href: "/guides/deposit-protection" }],
   },
   depositProtectedLate: {
     eyebrow: "Deposit protection issue",
@@ -54,14 +54,14 @@ export const routeFoundations = {
     title: "Cannot find my deposit scheme",
     description: "A practical route foundation for scheme searches, name and address variations, and gathering the right correspondence.",
     plannedSections: ["Search all schemes", "Check tenancy details", "Review correspondence", "Record search outcomes", "Potential next steps"],
-    links: [{ label: "Check eligibility", href: "/check-eligibility" }, { label: "Evidence guide", href: "/resources/evidence-guide" }],
+    links: [{ label: "Check eligibility", href: "/check-eligibility" }, { label: "Evidence guide", href: "/guides/deposit-protection" }],
   },
   resources: {
     eyebrow: "Knowledge Hub",
     title: "Clear guidance, organised around the evidence.",
     description: "The resource architecture is prepared for serious, reviewed guidance without invented authors, citations or publication claims.",
     plannedSections: ["Deposit protection", "Prescribed information", "Tenant guides", "Claim process", "Evidence", "FAQs", "Updates"],
-    links: [{ label: "Evidence guide", href: "/resources/evidence-guide" }, { label: "FAQs", href: "/resources/faqs" }, { label: "Glossary", href: "/resources/glossary" }, { label: "Blog", href: "/blog" }],
+    links: [{ label: "Evidence guide", href: "/guides/deposit-protection" }, { label: "FAQs", href: "/faqs" }, { label: "Glossary", href: "/resources/glossary" }, { label: "Blog", href: "/blog" }],
   },
   evidenceGuide: {
     eyebrow: "Resource foundation",
@@ -117,7 +117,7 @@ export const routeFoundations = {
     title: "Help should be easy to find.",
     description: "A support foundation for account help, claim questions, documents, accessibility and future service-status communication.",
     plannedSections: ["Account access", "Claim questions", "Documents and uploads", "Messages and notifications", "Accessibility support", "Contact options"],
-    links: [{ label: "Frequently asked questions", href: "/resources/faqs" }, { label: "Contact", href: "/contact" }],
+    links: [{ label: "Frequently asked questions", href: "/faqs" }, { label: "Contact", href: "/contact" }],
   },
   privacy: {
     eyebrow: "Legal information",

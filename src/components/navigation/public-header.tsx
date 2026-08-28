@@ -144,7 +144,7 @@ export function PublicHeader() {
               </div>
               <div className="mega-menu__links">
                 {selectedSection.items?.map((item, index) => (
-                  <Link className="mega-menu__link" href={item.href} key={item.href} onClick={() => setActivePanel(null)}>
+                  <Link className="mega-menu__link" href={item.href} key={item.id} onClick={() => setActivePanel(null)}>
                     <span className="mega-menu__index" aria-hidden="true">
                       {String(index + 1).padStart(2, "0")}
                     </span>
@@ -197,7 +197,7 @@ export function PublicHeader() {
                         <small>{section.supportingText}</small>
                       </Link>
                       {section.items.map((item) => (
-                        <Link href={item.href} key={item.href} onClick={closeMobileNavigation}>
+                        <Link href={item.href} key={item.id} onClick={closeMobileNavigation}>
                           <strong>{item.label}</strong>
                           <small>{item.description}</small>
                         </Link>

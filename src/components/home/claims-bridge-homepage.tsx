@@ -245,7 +245,7 @@ export function ClaimsBridgeHomepage() {
             <p className="eyebrow">What may have gone wrong</p>
             <h2 id="issues-title">Different records can point to different questions.</h2>
             <p>Each route explains an issue that may be relevant, depending on the tenancy and evidence available.</p>
-            <Link className="text-link" href="/claims">Explore all deposit issues <Icon name="arrow" /></Link>
+            <Link className="text-link" href="/deposit-claims">Explore all deposit issues <Icon name="arrow" /></Link>
           </div>
           <ol className={styles.issueIndex}>
             {depositIssues.map((issue) => (
@@ -337,7 +337,7 @@ export function ClaimsBridgeHomepage() {
             <h2 id="evidence-title">One place for the records that may matter.</h2>
             <p>A future Document Vault will help renters organise relevant documents by purpose, track what has been requested and understand what may still be missing.</p>
             <p className={styles.evidenceNote}>Document categories and review states will remain flexible as the service workflow is finalised.</p>
-            <Link className="text-link" href="/resources/evidence-guide">View the evidence guide <Icon name="arrow" /></Link>
+            <Link className="text-link" href="/guides/deposit-protection">View the evidence guide <Icon name="arrow" /></Link>
           </div>
         </ApplicationContainer>
       </section>
@@ -399,8 +399,9 @@ export function ClaimsBridgeHomepage() {
           <div className={styles.trustStatement}>
             <p className="eyebrow">The Claims Bridge approach</p>
             <h2 id="trust-title">Trust is built by making the process legible.</h2>
-            <p>Claims Bridge is being developed around careful assessment, clear communication and client visibility—not promises about results.</p>
-            <ButtonLink href="/about" variant="glass">About Claims Bridge <Icon name="arrow" /></ButtonLink>
+            <p>Claims Bridge is designed around careful assessment, clear communication and client visibility—not promises about results.</p>
+            <ButtonLink href="/why-claims-bridge" variant="glass">Why Claims Bridge <Icon name="arrow" /></ButtonLink>
+            <Link className="text-link" href="/security">Security and privacy <Icon name="arrow" /></Link>
           </div>
           <ol className={styles.principlesList}>
             {principles.map(([title, description], index) => (

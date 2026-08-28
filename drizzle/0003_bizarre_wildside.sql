@@ -1,0 +1,1 @@
+ALTER TABLE "claims" ADD CONSTRAINT "claims_eligibility_assessment_id_unique" UNIQUE("eligibility_assessment_id");

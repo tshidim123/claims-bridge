@@ -15,6 +15,104 @@
       "when": 1787847000000,
       "tag": "0001_eligibility_assessments",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787867683348,
+      "tag": "0002_plain_marvel_apes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787868126853,
+      "tag": "0003_bizarre_wildside",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787869738363,
+      "tag": "0004_dapper_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787871119044,
+      "tag": "0005_simple_corsair",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787873563530,
+      "tag": "0006_daily_lockheed",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787874349914,
+      "tag": "0007_lowly_violations",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787874688052,
+      "tag": "0008_empty_hemingway",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787882065518,
+      "tag": "0009_odd_azazel",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787885855315,
+      "tag": "0010_bright_sage",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787899401414,
+      "tag": "0011_nappy_fat_cobra",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787900897650,
+      "tag": "0012_petite_nebula",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787901941851,
+      "tag": "0013_lively_christian_walker",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787904063150,
+      "tag": "0014_empty_taskmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1787909987329,
+      "tag": "0015_flat_banshee",
+      "breakpoints": true
     }
   ]
 }

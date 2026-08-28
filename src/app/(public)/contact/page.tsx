@@ -1,10 +1,9 @@
-import { PageFoundation } from "@/components/layout/page-foundation";
-import { routeFoundations } from "@/content/route-foundations";
-import { createPageMetadata } from "@/lib/metadata";
+import Link from "next/link";
+import { EditorialSection, PublicCta, PublicHero, ScopeNotice } from "@/components/public/public-editorial";
+import { createPublicMetadata, publicCtas, publicMetadata } from "@/config/public-site";
 
-const content = routeFoundations.contact;
-export const metadata = createPageMetadata(content.title, content.description);
+export const metadata = createPublicMetadata(...publicMetadata.contact, "/contact");
 
 export default function ContactPage() {
-  return <PageFoundation {...content} />;
+  return <article className="public-page public-contact-page"><PublicHero eyebrow="Contact Claims Bridge" title="A contact route should be a real route." description="Claims Bridge will publish monitored contact details and response expectations before the operational service launches. No unmonitored address or invented response promise is shown here." actions={[publicCtas.support, publicCtas.howItWorks]} /><EditorialSection eyebrow="For now" title="Use the route that matches your need."><div className="public-two-column"><div className="public-contact-panel"><span className="eyebrow">General questions</span><h3>Start with the support hub.</h3><p>It brings together eligibility, account, evidence and existing-claim guidance.</p><Link className="text-link" href="/support">Visit support <span aria-hidden="true">↗</span></Link></div><div className="public-contact-panel"><span className="eyebrow">Existing clients</span><h3>Sign in to keep case information private.</h3><p>Claim messages and workspace details are available only through authenticated routes.</p><Link className="text-link" href="/sign-in">Sign in <span aria-hidden="true">↗</span></Link></div></div></EditorialSection><EditorialSection eyebrow="Truthful by design" title="No fake form submission, no silent inbox."><ScopeNotice title="Contact details are not operational yet">A contact form or address will appear once a monitored submission path is configured. Until then, Claims Bridge will not claim that a message has been delivered.</ScopeNotice></EditorialSection><PublicCta /></article>;
 }

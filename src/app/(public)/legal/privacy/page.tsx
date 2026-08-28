@@ -1,10 +1,7 @@
-import { PageFoundation } from "@/components/layout/page-foundation";
-import { routeFoundations } from "@/content/route-foundations";
-import { createPageMetadata } from "@/lib/metadata";
-
-const content = routeFoundations.privacy;
-export const metadata = createPageMetadata(content.title, content.description);
+import { PrivacyRoute } from "@/components/public/public-legal-routes";
+import { createPublicMetadata } from "@/config/public-site";
+export const metadata = createPublicMetadata("Privacy at Claims Bridge", "Understand the information and account concepts that a complete Claims Bridge privacy notice will cover.", "/privacy");
 
 export default function PrivacyPage() {
-  return <PageFoundation {...content} />;
+  return <PrivacyRoute />;
 }

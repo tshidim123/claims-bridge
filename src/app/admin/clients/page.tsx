@@ -1,0 +1,17 @@
+import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
+
+import { AdminAccessDenied } from "@/components/admin/admin-access-denied";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminQueueEmpty, AdminQueueLink, AdminQueueMeta, AdminQueuePagination, AdminQueueShell } from "@/components/admin/admin-operations-queue";
+import { getClientDirectory } from "@/lib/admin/operations/repository";
+
+export const metadata = { title: "Client directory", robots: { index: false, follow: false } };
+const value = (input: string | string[] | undefined) => Array.isArray(input) ? input[0] : input;
+const date = (input: string | null) => input ? new Date(input).toLocaleDateString("en-GB", { dateStyle: "medium" }) : "No claim activity";
+
+export default async function AdminClientsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const { userId } = await auth(); if (!userId) return <AdminAccessDenied />; const raw = await searchParams; const filters = { search: value(raw.search), sort: value(raw.sort) }; let result;
+  try { result = await getClientDirectory(userId, { ...filters, page: value(raw.page) }); } catch { return <AdminAccessDenied forbidden />; }
+  return <div className="admin-page"><AdminPageHeader eyebrow="Operations / clients" title="A minimised directory for operational work." description="Find real clients and their claim context. Personal details are kept out of list views and no profile editing is available here." /><form className="admin-queue-filters" method="get" aria-label="Search clients"><div className="admin-queue-search"><label htmlFor="client-search">Search clients</label><input id="client-search" name="search" type="search" defaultValue={filters.search ?? ""} placeholder="Name or safe client reference" /></div><label htmlFor="client-sort">Sort<select id="client-sort" name="sort" defaultValue={filters.sort ?? ""}><option value="">Latest activity</option><option value="NAME">Name</option></select></label><div className="admin-queue-filter-actions"><button className="button button--small button--primary" type="submit">Search directory</button><Link className="button button--small button--quiet" href="/admin/clients">Clear</Link></div></form><AdminQueueShell>{result.items.length ? <ol className="admin-operations-list">{result.items.map((item) => <li className="admin-queue-item" key={item.clientReference}><AdminQueueLink href={`/admin/clients/${item.clientReference}`}><span><strong>{item.name}</strong><em>{item.clientReference}</em></span><span className="admin-queue-item__state">{item.activeClaimCount} active claim{item.activeClaimCount === 1 ? "" : "s"}</span></AdminQueueLink><AdminQueueMeta><span>{item.claimCount} total claim{item.claimCount === 1 ? "" : "s"}</span><span>{item.onboardingStatus.toLowerCase().replaceAll("_", " ")}</span><span>Preferred contact: {item.preferredContactMethod}</span><span>{item.latestClaimReference ? `${item.latestClaimReference} · ${item.latestStageLabel}` : "No claim activity"} · {date(item.latestActivityAt)}</span></AdminQueueMeta></li>)}</ol> : <AdminQueueEmpty title="No clients match this search." description="The directory only returns real persisted client profiles visible to an authorised staff user." />}<AdminQueuePagination result={result} pathname="/admin/clients" params={filters} /></AdminQueueShell></div>;
+}

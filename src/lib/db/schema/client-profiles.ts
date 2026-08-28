@@ -4,6 +4,7 @@ export const onboardingStatus = pgEnum("onboarding_status", ["NOT_STARTED", "IN_
 export const preferredContactMethod = pgEnum("preferred_contact_method", ["email", "phone"]);
 export const clientProfiles = pgTable("client_profiles", {
   id: uuid("id").defaultRandom().primaryKey(),
+  clientReference: text("client_reference").notNull().unique(),
   clerkUserId: text("clerk_user_id").notNull().unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
