@@ -17,8 +17,8 @@ export async function AccountShell({ children }: { children: ReactNode }) {
     }
   }
   return (
-    <div className="account-shell">
-      <aside className="account-sidebar glass-surface glass-surface--strong">
+    <div className="account-shell" data-portal="client">
+      <aside className="account-sidebar glass-surface glass-surface--strong portal-glass-floating">
         <div className="glass-surface__content account-sidebar__content">
           <div className="account-sidebar__brand">
             <BrandMark />
@@ -32,13 +32,13 @@ export async function AccountShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <div className="account-shell__workspace">
-        <header className="account-topbar">
+        <header className="account-topbar portal-glass-secondary">
           <div>
             <span className="eyebrow">Claims Bridge</span>
             <strong>Client workspace</strong>
           </div>
           <div className="account-topbar__actions">
-            <AccountIdentity />
+            <div className="account-topbar__identity"><AccountIdentity /></div>
             <Link href="/account/notifications" aria-label={notificationUnreadCount > 0 ? `Notifications, ${notificationUnreadCount} unread` : "Notifications"} className="account-topbar__notification-link">
               <Icon name="notification" />
               {notificationUnreadCount > 0 && <span className="account-topbar__notification-count" aria-hidden="true">{notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}</span>}
