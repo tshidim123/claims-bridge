@@ -1,11 +1,9 @@
 import * as nextEnv from "@next/env";
 import { clerkClient } from "@clerk/nextjs/server";
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
 import { eq } from "drizzle-orm";
 
-import * as schema from "../src/lib/db/schema";
 import { staffAuditEvents, staffUsers } from "../src/lib/db/schema/staff";
+import { getDb } from "../src/lib/db";
 import { createStaffReference } from "../src/lib/staff/reference";
 
 const { loadEnvConfig } = nextEnv;
@@ -26,7 +24,7 @@ async function main() {
   try { user = await (await clerkClient()).users.getUser(clerkUserId); } catch { fail("The explicit bootstrap Clerk identity could not be verified."); }
   if (!user.emailAddresses.some((address) => address.verification?.status === "verified")) fail("The explicit bootstrap identity must have a verified email address.");
 
-  const db = drizzle(neon(process.env.DATABASE_URL), { schema });
+  const db = getDb();
   const result = await db.transaction(async (tx) => {
     const existing = (await tx.select().from(staffUsers).where(eq(staffUsers.clerkUserId, clerkUserId)).limit(1))[0];
     const staffCount = (await tx.select({ id: staffUsers.id }).from(staffUsers)).length;
