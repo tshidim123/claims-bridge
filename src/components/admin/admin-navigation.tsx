@@ -6,6 +6,8 @@ import type { StaffContext } from "@/lib/staff/authorization";
 const sections: ReadonlyArray<{ label: string; items: ReadonlyArray<{ label: string; href: string; permission: StaffPermission }> }> = [
   { label: "Operations", items: [
     { label: "Overview", href: "/admin", permission: "ADMIN_ACCESS" },
+    { label: "Leads", href: "/admin/leads", permission: "CLIENTS_VIEW" },
+    { label: "Assessments", href: "/admin/assessments", permission: "CLIENTS_VIEW" },
     { label: "Claims", href: "/admin/claims", permission: "CLAIMS_VIEW" },
     { label: "Messages", href: "/admin/messages", permission: "MESSAGES_VIEW" },
     { label: "Evidence", href: "/admin/evidence", permission: "EVIDENCE_VIEW" },

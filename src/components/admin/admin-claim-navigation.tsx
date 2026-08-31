@@ -11,6 +11,7 @@ const tabs = [
   { label: "Evidence", segment: "evidence", permission: "EVIDENCE_VIEW" as StaffPermission },
   { label: "Documents", segment: "documents", permission: "DOCUMENTS_VIEW" as StaffPermission },
   { label: "Messages", segment: "messages", permission: "MESSAGES_VIEW" as StaffPermission },
+  { label: "Client actions", segment: "client-actions", permission: "CLAIMS_VIEW" as StaffPermission },
   { label: "Internal notes", segment: "notes", permission: "CLAIMS_MANAGE" as StaffPermission },
   { label: "Audit", segment: "audit", permission: "AUDIT_VIEW" as StaffPermission },
 ];

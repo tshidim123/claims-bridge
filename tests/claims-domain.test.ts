@@ -798,3 +798,28 @@ test("Phase 11A uses opaque assessment references, real account routes, and reve
   assert.match(verifier, /claim_migrations_recorded/);
   assert.match(verifier, /\) = 17/);
 });
+
+test("Phase 11C exposes durable cross-client leads and assessments only through staff-authorized repositories", () => {
+  const operations = fs.readFileSync(path.resolve("src/lib/admin/operations/repository.ts"), "utf8");
+  const navigation = fs.readFileSync(path.resolve("src/components/admin/admin-navigation.tsx"), "utf8");
+  const overview = fs.readFileSync(path.resolve("src/app/admin/page.tsx"), "utf8");
+  const leads = fs.readFileSync(path.resolve("src/app/admin/leads/page.tsx"), "utf8");
+  const assessments = fs.readFileSync(path.resolve("src/app/admin/assessments/page.tsx"), "utf8");
+  const persistence = fs.readFileSync(path.resolve("src/lib/eligibility/persistence/repository.ts"), "utf8");
+
+  assert.match(operations, /getAdminLeadQueue/);
+  assert.match(operations, /getAdminAssessmentQueue/);
+  assert.match(operations, /requirePermission\(clerkUserId, "CLIENTS_VIEW"\)/);
+  assert.match(operations, /eligibilityAssessments/);
+  assert.match(operations, /not exists \(select 1 from claims/);
+  assert.match(leads, /getAdminLeadQueue/);
+  assert.match(assessments, /getAdminAssessmentQueue/);
+  assert.match(assessments, /\/admin\/assessments\/\$\{encodeURIComponent\(item\.assessmentReference\)\}/);
+  assert.match(navigation, /label: "Leads"/);
+  assert.match(navigation, /label: "Assessments"/);
+  assert.match(overview, /totalClients/);
+  assert.match(overview, /assessmentsWithoutClaims/);
+  assert.match(persistence, /HANDOFF_MINUTES = 45/);
+  assert.doesNotMatch(leads, /clerkUserId|assessment\.answers|tokenHash/);
+  assert.doesNotMatch(assessments, /clerkUserId|assessment\.answers|tokenHash/);
+});
