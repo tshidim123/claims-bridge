@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { captureEligibilityLead } from "@/lib/leads/actions";
-import { createLeadAssociationKey } from "@/lib/leads/reference";
+import { createLeadAssociationKey } from "@/lib/leads/association-key";
 import type { AssessmentState } from "@/lib/eligibility/types";
 import styles from "./eligibility.module.css";
 
