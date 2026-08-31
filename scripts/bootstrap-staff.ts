@@ -3,7 +3,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 
 import { staffAuditEvents, staffUsers } from "../src/lib/db/schema/staff";
-import { getDb } from "../src/lib/db";
+import { getDb } from "../src/lib/db/core";
 import { createStaffReference } from "../src/lib/staff/reference";
 
 const { loadEnvConfig } = nextEnv;
