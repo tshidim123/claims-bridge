@@ -2,23 +2,43 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 
 import { AdminAccessDenied } from "@/components/admin/admin-access-denied";
-import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { claimStageConfig, claimStatusConfig } from "@/config/claim-statuses";
-import { operationalPriorities, operationalPriorityLabels, claimAssignmentFilters, claimWaitingOnFilterLabels, claimQueueSorts } from "@/config/admin-claims";
-import { requirePermission } from "@/lib/staff/authorization";
-import { searchClaimsForStaff, getAdminQueueSummary, parseClaimQueueFilters } from "@/lib/admin/claims/repository";
 import { AdminClaimQueue } from "@/components/admin/admin-claim-queue";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { claimAssignmentFilters, claimQueueSorts, claimWaitingOnFilterLabels, operationalPriorities, operationalPriorityLabels } from "@/config/admin-claims";
+import { claimStageConfig, claimStatusConfig } from "@/config/claim-statuses";
+import { getAdminQueueSummary, parseClaimQueueFilters, searchClaimsForStaff } from "@/lib/admin/claims/repository";
+import { requirePermission } from "@/lib/staff/authorization";
 
 export const metadata = { title: "Claims queue", robots: { index: false, follow: false } };
 
 export default async function AdminClaimsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { userId } = await auth();
   if (!userId) return <AdminAccessDenied />;
-  try { await requirePermission(userId, "CLAIMS_VIEW"); } catch { return <AdminAccessDenied forbidden />; }
-  const raw = await searchParams;
-  const filters = parseClaimQueueFilters(raw);
-  let result;
-  let summary;
-  try { [result, summary] = await Promise.all([searchClaimsForStaff(userId, filters), getAdminQueueSummary(userId)]); } catch { return <div className="admin-page"><AdminPageHeader eyebrow="Operations / claims" title="Claims are temporarily unavailable." description="The claims queue could not be loaded. No operational change has been made." /></div>; }
-  return <div className="admin-page admin-claims-page"><AdminPageHeader eyebrow="Operations / claims" title="A clear view of the active claim record." description="Search and triage real Claims Bridge claims using operational context. Priority and assignment are staff workflow controls, not legal conclusions." /><section className="admin-queue-summary" aria-label="Claims queue summary"><span><small>Total claims</small><strong>{summary.total}</strong></span><span><small>Unassigned</small><strong>{summary.unassigned}</strong></span><span><small>Assigned to me</small><strong>{summary.assignedToMe}</strong></span><span><small>Needs attention</small><strong>{summary.needsAttention}</strong></span></section><form className="admin-queue-filters" method="get" aria-label="Filter claims"><div className="admin-queue-search"><label htmlFor="claim-search">Search claims</label><input id="claim-search" name="search" type="search" defaultValue={filters.search ?? ""} placeholder="Reference or client name" /></div><label htmlFor="claim-status">Status<select id="claim-status" name="status" defaultValue={filters.status ?? ""}><option value="">All statuses</option>{Object.values(claimStatusConfig).map((status) => <option value={status.id} key={status.id}>{status.label}</option>)}</select></label><label htmlFor="claim-stage">Stage<select id="claim-stage" name="stage" defaultValue={filters.stage ?? ""}><option value="">All stages</option>{claimStageConfig.map((stage) => <option value={stage.id} key={stage.id}>{stage.label}</option>)}</select></label><label htmlFor="claim-priority">Priority<select id="claim-priority" name="priority" defaultValue={filters.priority ?? ""}><option value="">All priorities</option>{operationalPriorities.map((priority) => <option value={priority} key={priority}>{operationalPriorityLabels[priority]}</option>)}</select></label><label htmlFor="claim-assignment">Assignment<select id="claim-assignment" name="assignment" defaultValue={filters.assignment ?? ""}>{claimAssignmentFilters.map((value) => <option value={value === "ALL" ? "" : value} key={value}>{value === "ALL" ? "All assignments" : value === "MINE" ? "Assigned to me" : value === "UNASSIGNED" ? "Unassigned" : "Assigned"}</option>)}</select></label><label htmlFor="claim-waiting">Waiting on<select id="claim-waiting" name="waitingOn" defaultValue={filters.waitingOn ?? ""}><option value="">Any waiting state</option>{Object.entries(claimWaitingOnFilterLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label htmlFor="claim-evidence">Evidence attention<select id="claim-evidence" name="evidence" defaultValue={filters.evidenceAttention === undefined ? "" : filters.evidenceAttention ? "yes" : "no"}><option value="">Any evidence state</option><option value="yes">Needs attention</option><option value="no">No current action</option></select></label><label htmlFor="claim-sort">Sort by<select id="claim-sort" name="sort" defaultValue={filters.sort ?? "NEWEST"}>{claimQueueSorts.map((value) => <option value={value} key={value}>{value === "NEWEST" ? "Newest" : value === "OLDEST" ? "Oldest" : value === "RECENTLY_ACTIVE" ? "Recently active" : "Priority"}</option>)}</select></label><div className="admin-queue-filter-actions"><button className="button button--small button--primary" type="submit"><span className="button__label">Apply filters</span></button><Link className="button button--small button--quiet" href="/admin/claims">Clear</Link></div></form><AdminClaimQueue result={result} filters={filters} /></div>;
+  try {
+    await requirePermission(userId, "CLAIMS_VIEW");
+  } catch {
+    return <AdminAccessDenied forbidden />;
+  }
+
+  const filters = parseClaimQueueFilters(await searchParams);
+  const [result, summary] = await Promise.all([searchClaimsForStaff(userId, filters), getAdminQueueSummary(userId)]).catch(() => [undefined, undefined] as const);
+  if (!result || !summary) return <div className="admin-page"><AdminPageHeader eyebrow="Operations / claims" title="Claims are temporarily unavailable." description="The claims queue could not be loaded. No operational change has been made." /></div>;
+
+  return <div className="admin-page admin-claims-page">
+    <AdminPageHeader eyebrow="Operations / claims" title="A clear view of the active claim record." description="Search and triage real Claims Bridge claims using operational context. Priority and assignment are staff workflow controls, not legal conclusions." />
+    <section className="admin-queue-summary" aria-label="Claims queue summary"><span><small>Active claims</small><strong>{summary.total}</strong></span><span><small>Unassigned</small><strong>{summary.unassigned}</strong></span><span><small>Assigned to me</small><strong>{summary.assignedToMe}</strong></span><span><small>Needs attention</small><strong>{summary.needsAttention}</strong></span></section>
+    <form className="admin-queue-filters" method="get" aria-label="Filter claims">
+      <div className="admin-queue-search"><label htmlFor="claim-search">Search claims</label><input id="claim-search" name="search" type="search" defaultValue={filters.search ?? ""} placeholder="Reference or client name" /></div>
+      <label htmlFor="claim-status">Status<select id="claim-status" name="status" defaultValue={filters.status ?? ""}><option value="">All statuses</option>{Object.values(claimStatusConfig).map((status) => <option value={status.id} key={status.id}>{status.label}</option>)}</select></label>
+      <label htmlFor="claim-stage">Stage<select id="claim-stage" name="stage" defaultValue={filters.stage ?? ""}><option value="">All stages</option>{claimStageConfig.map((stage) => <option value={stage.id} key={stage.id}>{stage.label}</option>)}</select></label>
+      <label htmlFor="claim-priority">Priority<select id="claim-priority" name="priority" defaultValue={filters.priority ?? ""}><option value="">All priorities</option>{operationalPriorities.map((priority) => <option value={priority} key={priority}>{operationalPriorityLabels[priority]}</option>)}</select></label>
+      <label htmlFor="claim-assignment">Assignment<select id="claim-assignment" name="assignment" defaultValue={filters.assignment ?? ""}>{claimAssignmentFilters.map((value) => <option value={value === "ALL" ? "" : value} key={value}>{value === "ALL" ? "All assignments" : value === "MINE" ? "Assigned to me" : value === "UNASSIGNED" ? "Unassigned" : "Assigned"}</option>)}</select></label>
+      <label htmlFor="claim-waiting">Waiting on<select id="claim-waiting" name="waitingOn" defaultValue={filters.waitingOn ?? ""}><option value="">Any waiting state</option>{Object.entries(claimWaitingOnFilterLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+      <label htmlFor="claim-evidence">Evidence attention<select id="claim-evidence" name="evidence" defaultValue={filters.evidenceAttention === undefined ? "" : filters.evidenceAttention ? "yes" : "no"}><option value="">Any evidence state</option><option value="yes">Needs attention</option><option value="no">No current action</option></select></label>
+      <label htmlFor="claim-archive">Queue state<select id="claim-archive" name="archive" defaultValue={filters.archive ?? "ACTIVE"}><option value="ACTIVE">Active only</option><option value="ARCHIVED">Archived only</option><option value="ALL">All retained claims</option></select></label>
+      <label htmlFor="claim-sort">Sort by<select id="claim-sort" name="sort" defaultValue={filters.sort ?? "NEWEST"}>{claimQueueSorts.map((value) => <option value={value} key={value}>{value === "NEWEST" ? "Newest" : value === "OLDEST" ? "Oldest" : value === "RECENTLY_ACTIVE" ? "Recently active" : "Priority"}</option>)}</select></label>
+      <div className="admin-queue-filter-actions"><button className="button button--small button--primary" type="submit"><span className="button__label">Apply filters</span></button><Link className="button button--small button--quiet" href="/admin/claims">Clear</Link></div>
+    </form>
+    <AdminClaimQueue result={result} filters={filters} />
+  </div>;
 }

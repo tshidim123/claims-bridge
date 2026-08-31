@@ -23,4 +23,4 @@ Before deployment, run `npm run production:check`, `npm run production:smoke`, `
 
 ## Current verification record
 
-Local core environment checks pass for Clerk and Neon, and the schema verifier reports all 16 migrations applied. No real bootstrap identity or canonical production URL is currently configured in this workspace, so production SUPER_ADMIN bootstrap, production-domain verification and authenticated production smoke testing remain BLOCKED rather than being represented as complete. R2 remains intentionally unconfigured.
+Local core environment checks pass for Clerk and Neon, and the schema verifier reports all 17 migrations applied. No real bootstrap identity or canonical production URL is currently configured in this workspace, so production SUPER_ADMIN bootstrap, production-domain verification and authenticated production smoke testing remain BLOCKED rather than being represented as complete. R2 remains intentionally unconfigured.

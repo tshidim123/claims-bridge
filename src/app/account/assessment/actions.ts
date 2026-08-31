@@ -4,9 +4,10 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { ClaimDomainError, createClaimFromAssessment } from "@/lib/claims/repository";
+import { ClaimDomainError, createClaimFromAssessmentReference } from "@/lib/claims/repository";
+import { ASSESSMENT_REFERENCE_PATTERN } from "@/lib/eligibility/persistence/reference";
 
-const inputSchema = z.object({ assessmentId: z.string().uuid() });
+const inputSchema = z.object({ assessmentReference: z.string().regex(ASSESSMENT_REFERENCE_PATTERN) });
 
 export type CreateClaimActionState = { ok: boolean; message?: string };
 
@@ -21,7 +22,7 @@ export async function startClaimFromAssessment(_previous: CreateClaimActionState
 
   let claim;
   try {
-    claim = await createClaimFromAssessment(userId, parsed.data.assessmentId);
+    claim = await createClaimFromAssessmentReference(userId, parsed.data.assessmentReference);
   } catch (error) {
     if (error instanceof ClaimDomainError) {
       if (error.code === "ASSESSMENT_NOT_COMPLETE") return { ok: false, message: "Please complete the assessment before starting a claim." };

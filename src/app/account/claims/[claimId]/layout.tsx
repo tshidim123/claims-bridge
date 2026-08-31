@@ -23,6 +23,9 @@ export default async function ClaimLayout({ children, params }: ClaimLayoutProps
     return <AccountPageHeader title="Claim unavailable" description="This claim workspace is temporarily unavailable. Please try again shortly." />;
   }
   if (!ownedClaim) notFound();
+  if (ownedClaim.claim.archivedAt) {
+    return <div className="account-page claim-page"><AccountPageHeader eyebrow="Claim history" title="Claim archived" description="This claim is retained as part of your case history but is no longer an active Claims Bridge workflow." /><section className="document-vault__empty"><p className="eyebrow">Archived {ownedClaim.claim.archivedAt.toLocaleDateString("en-GB")}</p><h2>This claim is read-only.</h2><p>Its history remains retained for operational integrity. It is not shown as an active claim and no new messages, documents, evidence, or actions can be added while archived.</p></section></div>;
+  }
 
   return (
     <div className="claim-workspace">

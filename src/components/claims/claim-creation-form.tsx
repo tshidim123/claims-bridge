@@ -7,12 +7,12 @@ import { startClaimFromAssessment, type CreateClaimActionState } from "@/app/acc
 
 const initialState: CreateClaimActionState = { ok: false };
 
-export function ClaimCreationForm({ assessmentId }: { assessmentId: string }) {
+export function ClaimCreationForm({ assessmentReference }: { assessmentReference: string }) {
   const [state, action, pending] = useActionState(startClaimFromAssessment, initialState);
 
   return (
     <form className="claim-creation" action={action} aria-describedby="claim-creation-note">
-      <input type="hidden" name="assessmentId" value={assessmentId} />
+      <input type="hidden" name="assessmentReference" value={assessmentReference} />
       <div>
         <p className="eyebrow">Ready when you are</p>
         <h2>Continue to claim review</h2>

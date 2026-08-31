@@ -8,7 +8,7 @@ Use this checklist only with the real production Clerk instance, production orig
 - [ ] Confirm production Clerk publishable/secret keys belong to the production instance.
 - [ ] Confirm `DATABASE_URL` points to the intended production Neon database.
 - [ ] Run `npm run env:check`, `npm run production:check`, `npm run typecheck`, `npm run lint`, and `npm run build`.
-- [ ] Run database verification and confirm migration count is 16 with no drift.
+- [ ] Run database verification and confirm migration count is 17 with no drift.
 - [ ] Confirm R2 is intentionally deferred or separately approved; do not represent binary review as available.
 
 ## Controlled bootstrap

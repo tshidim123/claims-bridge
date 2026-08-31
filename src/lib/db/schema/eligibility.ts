@@ -1,4 +1,20 @@
 import { pgTable, text, timestamp, uuid, jsonb, index } from "drizzle-orm/pg-core";
 import { clientProfiles } from "./client-profiles";
-export const eligibilityAssessments = pgTable("eligibility_assessments", { id: uuid("id").defaultRandom().primaryKey(), clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }), assessmentVersion: text("assessment_version").notNull(), status: text("status").notNull(), currentSection: text("current_section").notNull(), currentQuestionId: text("current_question_id"), answers: jsonb("answers").notNull(), preliminaryOutcome: text("preliminary_outcome"), startedAt: timestamp("started_at", { withTimezone: true }).notNull(), updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(), completedAt: timestamp("completed_at", { withTimezone: true }), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow() }, (table) => [index("eligibility_assessments_client_profile_idx").on(table.clientProfileId)]);
+export const eligibilityAssessments = pgTable("eligibility_assessments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  assessmentReference: text("assessment_reference").notNull().unique(),
+  clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+  assessmentVersion: text("assessment_version").notNull(),
+  status: text("status").notNull(),
+  currentSection: text("current_section").notNull(),
+  currentQuestionId: text("current_question_id"),
+  answers: jsonb("answers").notNull(),
+  preliminaryOutcome: text("preliminary_outcome"),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("eligibility_assessments_client_profile_idx").on(table.clientProfileId),
+]);
 export const eligibilityHandoffs = pgTable("eligibility_handoffs", { id: uuid("id").defaultRandom().primaryKey(), tokenHash: text("token_hash").notNull().unique(), assessmentVersion: text("assessment_version").notNull(), payload: jsonb("payload").notNull(), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(), expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(), redeemedAt: timestamp("redeemed_at", { withTimezone: true }) });

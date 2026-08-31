@@ -3,6 +3,7 @@ import { index, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-co
 import { claimStatuses } from "@/config/claim-statuses";
 import { clientProfiles } from "./client-profiles";
 import { eligibilityAssessments } from "./eligibility";
+import { staffUsers } from "./staff";
 
 export const claimStatus = pgEnum("claim_status", claimStatuses);
 export const claimOperationalPriority = pgEnum("claim_operational_priority", ["NORMAL", "ELEVATED", "HIGH"]);
@@ -36,11 +37,15 @@ export const claims = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archivedByStaffId: uuid("archived_by_staff_id").references(() => staffUsers.id, { onDelete: "restrict" }),
+    archiveReason: text("archive_reason"),
   },
   (table) => [
     index("claims_client_profile_created_idx").on(table.clientProfileId, table.createdAt),
     index("claims_client_profile_status_idx").on(table.clientProfileId, table.status),
     index("claims_eligibility_assessment_idx").on(table.eligibilityAssessmentId),
+    index("claims_archived_at_idx").on(table.archivedAt),
   ],
 );
 

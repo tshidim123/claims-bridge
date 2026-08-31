@@ -39,6 +39,13 @@ export async function getEvidenceActionCountsForClient(clerkUserId: string) {
   return Object.fromEntries(rows.map((row) => [row.claimId, Number(row.count)]));
 }
 
+export async function getDocumentIndexForClient(clerkUserId: string) {
+  const db = getDb();
+  const profile = (await db.select({ id: clientProfiles.id }).from(clientProfiles).where(eq(clientProfiles.clerkUserId, clerkUserId)).limit(1))[0];
+  if (!profile) return [];
+  return db.select({ claimReference: claims.claimReference, documentReference: claimDocuments.documentReference, displayName: claimDocuments.displayName, category: claimDocuments.category, mimeType: claimDocuments.mimeType, sizeBytes: claimDocuments.sizeBytes, status: claimDocuments.status, securityStatus: claimDocuments.securityStatus, uploadedAt: claimDocuments.uploadedAt, createdAt: claimDocuments.createdAt }).from(claimDocuments).innerJoin(claims, eq(claims.id, claimDocuments.claimId)).where(eq(claims.clientProfileId, profile.id)).orderBy(desc(claimDocuments.createdAt));
+}
+
 export async function requestEvidenceInTransaction(executor: EvidenceDbExecutor, claimId: string, evidenceType: string, options: { priority?: EvidenceRequirementPriority; required?: boolean; clientVisible?: boolean; dueAt?: Date | null } = {}) {
   if (!isEvidenceRequirementType(evidenceType)) throw new Error("Invalid evidence requirement type.");
   if (options.priority && !isEvidenceRequirementPriority(options.priority)) throw new Error("Invalid evidence requirement priority.");

@@ -18,7 +18,7 @@ type DbTransaction = Parameters<DbClient["transaction"]>[0] extends (tx: infer T
 export type MessagingDbExecutor = DbClient | DbTransaction;
 
 export class MessagingServiceError extends Error {
-  constructor(public readonly code: "CLAIM_NOT_FOUND" | "CONVERSATION_NOT_FOUND" | "CONVERSATION_CLOSED" | "INVALID_MESSAGE" | "MESSAGE_NOT_FOUND" | "INVALID_CURSOR", public readonly status: number, message: string) {
+  constructor(public readonly code: "CLAIM_NOT_FOUND" | "CLAIM_ARCHIVED" | "CONVERSATION_NOT_FOUND" | "CONVERSATION_CLOSED" | "INVALID_MESSAGE" | "MESSAGE_NOT_FOUND" | "INVALID_CURSOR", public readonly status: number, message: string) {
     super(message);
     this.name = "MessagingServiceError";
   }
@@ -110,6 +110,7 @@ export async function markClaimConversationReadForClient(clerkUserId: string, cl
 
 export async function createClientMessageForClaim(clerkUserId: string, claimReference: string, input: { body: unknown; requestId?: string }) {
   const context = await getOrCreateClaimConversationForClient(clerkUserId, claimReference);
+  if (context.claim.archivedAt) throw new MessagingServiceError("CLAIM_ARCHIVED", 409, "This archived claim is read-only.");
   let body: string;
   try { body = parseMessageBody({ body: input.body }); } catch (error) { throw new MessagingServiceError("INVALID_MESSAGE", 400, error instanceof Error ? error.message : "Please check your message and try again."); }
   const requestId = typeof input.requestId === "string" && input.requestId.length <= 100 ? input.requestId : null;

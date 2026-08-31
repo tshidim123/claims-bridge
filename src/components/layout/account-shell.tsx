@@ -26,7 +26,7 @@ export async function AccountShell({ children }: { children: ReactNode }) {
           </div>
           <AccountNavigation notificationUnreadCount={notificationUnreadCount} />
           <div className="account-sidebar__footer">
-            <span className="account-sidebar__security"><Icon name="shield" /> Secure area foundation</span>
+            <span className="account-sidebar__security"><Icon name="shield" /> Secure client area</span>
             <Link href="/">Return to public site</Link>
           </div>
         </div>

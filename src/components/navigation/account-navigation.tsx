@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 const iconByLabel: Record<string, IconName> = {
   Overview: "home",
+  Assessments: "search",
   "My claims": "shield",
   Documents: "documents",
   Messages: "message",

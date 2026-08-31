@@ -19,8 +19,17 @@ const [verification] = await sql`
       where tc.table_schema = 'public' and tc.table_name = 'client_profiles' and tc.constraint_type = 'UNIQUE' and kcu.column_name = 'client_reference'
     ) as client_reference_unique,
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'eligibility_assessments') as eligibility_assessments,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'eligibility_assessments' and column_name = 'assessment_reference' and is_nullable = 'NO') as assessment_reference,
+    exists (
+      select 1 from information_schema.table_constraints tc
+      join information_schema.key_column_usage kcu on tc.constraint_name = kcu.constraint_name and tc.table_schema = kcu.table_schema
+      where tc.table_schema = 'public' and tc.table_name = 'eligibility_assessments' and tc.constraint_type = 'UNIQUE' and kcu.column_name = 'assessment_reference'
+    ) as assessment_reference_unique,
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'eligibility_handoffs') as eligibility_handoffs,
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'claims') as claims,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'claims' and column_name = 'archived_at') as claim_archived_at,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'claims' and column_name = 'archive_reason') as claim_archive_reason,
+    exists (select 1 from pg_indexes where schemaname = 'public' and tablename = 'claims' and indexname = 'claims_archived_at_idx') as claim_archived_index,
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'claim_status_history') as claim_status_history,
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'claim_timeline_events') as claim_timeline_events,
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'claim_evidence_requirements') as claim_evidence_requirements,
@@ -220,7 +229,7 @@ const [verification] = await sql`
     exists (
       select 1 from pg_type t
       where t.typname = 'staff_audit_action'
-        and (select bool_and(e.enumlabel::text = any(array['CLAIM_STATUS_CHANGED', 'EVIDENCE_REQUESTED', 'EVIDENCE_STATUS_CHANGED', 'DOCUMENT_STATUS_CHANGED', 'CLIENT_PROFILE_UPDATED']::text[])) from pg_enum e where e.enumtypid = t.oid and e.enumlabel::text in ('CLAIM_STATUS_CHANGED', 'EVIDENCE_REQUESTED', 'EVIDENCE_STATUS_CHANGED', 'DOCUMENT_STATUS_CHANGED', 'CLIENT_PROFILE_UPDATED'))
+        and (select bool_and(e.enumlabel::text = any(array['CLAIM_STATUS_CHANGED', 'CLAIM_ARCHIVED', 'CLAIM_RESTORED', 'EVIDENCE_REQUESTED', 'EVIDENCE_STATUS_CHANGED', 'DOCUMENT_STATUS_CHANGED', 'CLIENT_PROFILE_UPDATED']::text[])) from pg_enum e where e.enumtypid = t.oid and e.enumlabel::text in ('CLAIM_STATUS_CHANGED', 'CLAIM_ARCHIVED', 'CLAIM_RESTORED', 'EVIDENCE_REQUESTED', 'EVIDENCE_STATUS_CHANGED', 'DOCUMENT_STATUS_CHANGED', 'CLIENT_PROFILE_UPDATED'))
     ) as workflow_audit_actions,
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'claim_action_requirements') as claim_action_requirements,
     exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'claim_action_requirements' and column_name = 'action_reference') as action_reference,
@@ -247,7 +256,7 @@ const [verification] = await sql`
     ) as action_status_values,
     (select count(*)::int from public.staff_users) as staff_record_count,
     (select count(*)::int from public.staff_audit_events where action = 'STAFF_BOOTSTRAPPED') as staff_bootstrap_audit_count,
-    (select count(*)::int from drizzle.__drizzle_migrations) = 16 as claim_migrations_recorded,
+    (select count(*)::int from drizzle.__drizzle_migrations) = 17 as claim_migrations_recorded,
     (select count(*)::int from drizzle.__drizzle_migrations) as migration_count
 `;
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { isOperationalPriority, type OperationalPriority, internalNoteMaxLength } from "@/config/admin-claims";
 import { isStaffRole, hasPermissionForRole } from "@/config/staff";
@@ -13,10 +13,16 @@ import { requirePermission } from "@/lib/staff/authorization";
 import { createInternalNoteReference } from "./references";
 
 export class AdminClaimServiceError extends Error {
-  constructor(public readonly code: "CLAIM_NOT_FOUND" | "STAFF_NOT_FOUND" | "STAFF_NOT_ASSIGNABLE" | "INVALID_PRIORITY" | "INVALID_NOTE" | "LAST_ASSIGNMENT_STATE" | "DUPLICATE") {
+  constructor(public readonly code: "CLAIM_NOT_FOUND" | "STAFF_NOT_FOUND" | "STAFF_NOT_ASSIGNABLE" | "INVALID_PRIORITY" | "INVALID_NOTE" | "INVALID_ARCHIVE_REASON" | "ARCHIVED" | "NOT_ARCHIVED" | "LAST_ASSIGNMENT_STATE" | "DUPLICATE") {
     super(code);
     this.name = "AdminClaimServiceError";
   }
+}
+
+function ensureActiveClaim<T extends { archivedAt: Date | null }>(claim: T | undefined): T {
+  if (!claim) throw new AdminClaimServiceError("CLAIM_NOT_FOUND");
+  if (claim.archivedAt) throw new AdminClaimServiceError("ARCHIVED");
+  return claim;
 }
 
 function isUniqueViolation(error: unknown) {
@@ -34,8 +40,7 @@ export async function setClaimPriority(clerkUserId: string, claimReference: stri
   const db = getDb();
 
   return db.transaction(async (tx) => {
-    const claim = (await tx.select({ id: claims.id, operationalPriority: claims.operationalPriority }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
-    if (!claim) throw new AdminClaimServiceError("CLAIM_NOT_FOUND");
+    const claim = ensureActiveClaim((await tx.select({ id: claims.id, operationalPriority: claims.operationalPriority, archivedAt: claims.archivedAt }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0]);
     if (claim.operationalPriority === priority) return claim;
     const actorId = await getActorIdInTransaction(tx, clerkUserId);
     if (!actorId) throw new AdminClaimServiceError("STAFF_NOT_FOUND");
@@ -59,8 +64,7 @@ export async function assignClaim(clerkUserId: string, claimReference: string, s
   const db = getDb();
   try {
     return await db.transaction(async (tx) => {
-      const claim = (await tx.select({ id: claims.id }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
-      if (!claim) throw new AdminClaimServiceError("CLAIM_NOT_FOUND");
+      const claim = ensureActiveClaim((await tx.select({ id: claims.id, archivedAt: claims.archivedAt }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0]);
       const target = await getAssignableStaffByReference(tx, staffReference);
       ensureAssignable(target);
       const actorId = await getActorIdInTransaction(tx, clerkUserId);
@@ -94,8 +98,7 @@ export async function unassignClaim(clerkUserId: string, claimReference: string)
   await requirePermission(clerkUserId, "CLAIMS_MANAGE");
   const db = getDb();
   return db.transaction(async (tx) => {
-    const claim = (await tx.select({ id: claims.id }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
-    if (!claim) throw new AdminClaimServiceError("CLAIM_NOT_FOUND");
+    const claim = ensureActiveClaim((await tx.select({ id: claims.id, archivedAt: claims.archivedAt }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0]);
     const current = (await tx.select({ id: claimAssignments.id, staffUserId: claimAssignments.staffUserId, staffReference: staffUsers.staffReference }).from(claimAssignments).innerJoin(staffUsers, eq(staffUsers.id, claimAssignments.staffUserId)).where(and(eq(claimAssignments.claimId, claim.id), isNull(claimAssignments.unassignedAt))).limit(1))[0];
     if (!current) return null;
     const actorId = await getActorIdInTransaction(tx, clerkUserId);
@@ -113,12 +116,48 @@ export async function addInternalClaimNote(clerkUserId: string, claimReference: 
   if (!trimmed || trimmed.length > internalNoteMaxLength) throw new AdminClaimServiceError("INVALID_NOTE");
   const db = getDb();
   return db.transaction(async (tx) => {
-    const claim = (await tx.select({ id: claims.id }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
-    if (!claim) throw new AdminClaimServiceError("CLAIM_NOT_FOUND");
+    const claim = ensureActiveClaim((await tx.select({ id: claims.id, archivedAt: claims.archivedAt }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0]);
     const actorId = await getActorIdInTransaction(tx, clerkUserId);
     if (!actorId) throw new AdminClaimServiceError("STAFF_NOT_FOUND");
     const note = (await tx.insert(claimInternalNotes).values({ noteReference: createInternalNoteReference(), claimId: claim.id, authorStaffUserId: actorId, body: trimmed }).returning())[0];
     await recordStaffAuditEvent(tx, { actorStaffUserId: actorId, actorType: "STAFF", action: "CLAIM_INTERNAL_NOTE_ADDED", targetType: "CLAIM", targetReference: claimReference });
     return note;
+  });
+}
+
+export async function archiveClaim(clerkUserId: string, claimReference: string, archiveReason: unknown) {
+  await requirePermission(clerkUserId, "CLAIMS_ARCHIVE");
+  if (typeof archiveReason !== "string" || archiveReason.trim().length < 3 || archiveReason.trim().length > 500) throw new AdminClaimServiceError("INVALID_ARCHIVE_REASON");
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const actorId = await getActorIdInTransaction(tx, clerkUserId);
+    if (!actorId) throw new AdminClaimServiceError("STAFF_NOT_FOUND");
+    const now = new Date();
+    const archived = (await tx.update(claims).set({ archivedAt: now, archivedByStaffId: actorId, archiveReason: archiveReason.trim(), updatedAt: now }).where(and(eq(claims.claimReference, claimReference), isNull(claims.archivedAt))).returning({ id: claims.id }))[0];
+    if (!archived) {
+      const exists = (await tx.select({ archivedAt: claims.archivedAt }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
+      if (!exists) throw new AdminClaimServiceError("CLAIM_NOT_FOUND");
+      throw new AdminClaimServiceError("ARCHIVED");
+    }
+    await recordStaffAuditEvent(tx, { actorStaffUserId: actorId, actorType: "STAFF", action: "CLAIM_ARCHIVED", targetType: "CLAIM", targetReference: claimReference, metadata: { reasonCode: "ARCHIVED_WITH_REASON" } });
+    return { archivedAt: now };
+  });
+}
+
+export async function restoreArchivedClaim(clerkUserId: string, claimReference: string) {
+  await requirePermission(clerkUserId, "CLAIMS_ARCHIVE");
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const actorId = await getActorIdInTransaction(tx, clerkUserId);
+    if (!actorId) throw new AdminClaimServiceError("STAFF_NOT_FOUND");
+    const now = new Date();
+    const restored = (await tx.update(claims).set({ archivedAt: null, archivedByStaffId: null, archiveReason: null, updatedAt: now }).where(and(eq(claims.claimReference, claimReference), isNotNull(claims.archivedAt))).returning({ id: claims.id }))[0];
+    if (!restored) {
+      const exists = (await tx.select({ archivedAt: claims.archivedAt }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
+      if (!exists) throw new AdminClaimServiceError("CLAIM_NOT_FOUND");
+      throw new AdminClaimServiceError("NOT_ARCHIVED");
+    }
+    await recordStaffAuditEvent(tx, { actorStaffUserId: actorId, actorType: "STAFF", action: "CLAIM_RESTORED", targetType: "CLAIM", targetReference: claimReference });
+    return { restoredAt: now };
   });
 }

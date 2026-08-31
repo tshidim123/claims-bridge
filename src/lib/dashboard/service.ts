@@ -20,6 +20,7 @@ import { isDashboardActiveClaim, mergeDashboardActivity, resolvePrimaryDashboard
 
 export type DashboardClaim = {
   claimReference: string;
+  archivedAt: string | null;
   status: ClaimStatus;
   statusLabel: string;
   stageLabel: string;
@@ -62,7 +63,7 @@ export async function getClientDashboard(clerkUserId: string): Promise<Dashboard
   if (!profile) return emptyDashboard();
   const db = getDb();
   const [claimRows, assessment, notificationUnreadCount] = await Promise.all([
-    db.select({ id: claims.id, clientProfileId: claims.clientProfileId, eligibilityAssessmentId: claims.eligibilityAssessmentId, claimReference: claims.claimReference, status: claims.status, createdAt: claims.createdAt, updatedAt: claims.updatedAt, submittedAt: claims.submittedAt, closedAt: claims.closedAt }).from(claims).where(eq(claims.clientProfileId, profile.id)).orderBy(desc(claims.createdAt)),
+    db.select({ id: claims.id, clientProfileId: claims.clientProfileId, eligibilityAssessmentId: claims.eligibilityAssessmentId, claimReference: claims.claimReference, status: claims.status, archivedAt: claims.archivedAt, createdAt: claims.createdAt, updatedAt: claims.updatedAt, submittedAt: claims.submittedAt, closedAt: claims.closedAt }).from(claims).where(eq(claims.clientProfileId, profile.id)).orderBy(desc(claims.createdAt)),
     db.select({ status: eligibilityAssessments.status, updatedAt: eligibilityAssessments.updatedAt }).from(eligibilityAssessments).where(eq(eligibilityAssessments.clientProfileId, profile.id)).orderBy(desc(eligibilityAssessments.createdAt)).limit(1),
     getUnreadNotificationCount(clerkUserId),
   ]);
@@ -115,9 +116,9 @@ export async function getClientDashboard(clerkUserId: string): Promise<Dashboard
     const status = claim.status as ClaimStatus;
     const statusConfig = claimStatusConfig[status];
     const claimTimeline = timelineByClaim.get(claim.id) ?? [];
-    return { claimReference: claim.claimReference, status, statusLabel: statusConfig.label, stageLabel: statusConfig.stage === "PROGRESS_RESOLUTION" ? "Progress / resolution" : statusConfig.stage === "INITIAL_REVIEW" ? "Initial review" : statusConfig.stage.charAt(0) + statusConfig.stage.slice(1).toLowerCase(), stageOrder: statusConfig.stage === "CLOSED" ? 7 : ({ SUBMITTED: 1, INITIAL_REVIEW: 2, EVIDENCE: 3, ASSESSMENT: 4, PREPARATION: 5, PROGRESS_RESOLUTION: 6 } as Record<string, number>)[statusConfig.stage], stageCount, waitingOn: claimWaitingOnLabels[getClaimWaitingOn(status)], nextStep: getClaimNextStepForClient(status, Boolean(evidenceByClaim.get(claim.id)?.actionRequiredCount)), createdAt: claim.createdAt.toISOString(), submittedAt: iso(claim.submittedAt), latestActivityAt: claimTimeline[0] ? claimTimeline[0].occurredAt.toISOString() : claim.createdAt.toISOString(), evidence: evidenceByClaim.get(claim.id) ?? { requestedCount: 0, providedCount: 0, acceptedCount: 0, underReviewCount: 0, actionRequiredCount: 0, completenessState: "NOT_STARTED", outstandingRequirements: [] }, unreadMessageCount: unreadByClaim.get(claim.id) ?? 0, openActions: (actionsByClaim.get(claim.id) ?? []).map((action) => ({ actionReference: action.actionReference, title: action.title, description: action.description, priority: action.priority, dueAt: iso(action.dueAt), clientCanComplete: clientActionConfig[action.type].clientCanComplete })) };
+    return { claimReference: claim.claimReference, archivedAt: iso(claim.archivedAt), status, statusLabel: statusConfig.label, stageLabel: statusConfig.stage === "PROGRESS_RESOLUTION" ? "Progress / resolution" : statusConfig.stage === "INITIAL_REVIEW" ? "Initial review" : statusConfig.stage.charAt(0) + statusConfig.stage.slice(1).toLowerCase(), stageOrder: statusConfig.stage === "CLOSED" ? 7 : ({ SUBMITTED: 1, INITIAL_REVIEW: 2, EVIDENCE: 3, ASSESSMENT: 4, PREPARATION: 5, PROGRESS_RESOLUTION: 6 } as Record<string, number>)[statusConfig.stage], stageCount, waitingOn: claimWaitingOnLabels[getClaimWaitingOn(status)], nextStep: getClaimNextStepForClient(status, Boolean(evidenceByClaim.get(claim.id)?.actionRequiredCount)), createdAt: claim.createdAt.toISOString(), submittedAt: iso(claim.submittedAt), latestActivityAt: claimTimeline[0] ? claimTimeline[0].occurredAt.toISOString() : claim.createdAt.toISOString(), evidence: evidenceByClaim.get(claim.id) ?? { requestedCount: 0, providedCount: 0, acceptedCount: 0, underReviewCount: 0, actionRequiredCount: 0, completenessState: "NOT_STARTED", outstandingRequirements: [] }, unreadMessageCount: unreadByClaim.get(claim.id) ?? 0, openActions: (actionsByClaim.get(claim.id) ?? []).map((action) => ({ actionReference: action.actionReference, title: action.title, description: action.description, priority: action.priority, dueAt: iso(action.dueAt), clientCanComplete: clientActionConfig[action.type].clientCanComplete })) };
   });
-  const activeClaims = dashboardClaims.filter((claim) => isDashboardActiveClaim(claim.status));
+  const activeClaims = dashboardClaims.filter((claim) => !claim.archivedAt && isDashboardActiveClaim(claim.status));
   const attentionItems: DashboardAttentionItem[] = [];
   for (const claim of activeClaims) {
     if (claim.evidence.actionRequiredCount > 0) attentionItems.push({ kind: "PROVIDE_EVIDENCE", priority: 1, label: "Review requested evidence", description: "Check the evidence requests that may need information or action from you.", destination: `/account/claims/${encodeURIComponent(claim.claimReference)}/evidence`, claimReference: claim.claimReference, title: `${claim.evidence.actionRequiredCount} evidence item${claim.evidence.actionRequiredCount === 1 ? "" : "s"} may need attention`, context: claim.claimReference });

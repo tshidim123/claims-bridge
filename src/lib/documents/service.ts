@@ -18,7 +18,7 @@ type DbClient = ReturnType<typeof getDb>;
 type DbTransaction = Parameters<DbClient["transaction"]>[0] extends (tx: infer T, ...args: never[]) => unknown ? T : never;
 export type DocumentDbExecutor = DbClient | DbTransaction;
 
-export type DocumentServiceErrorCode = "CLAIM_NOT_FOUND" | "UPLOAD_NOT_FOUND" | "UPLOAD_EXPIRED" | "UPLOAD_IN_PROGRESS" | "UPLOAD_ALREADY_FINALIZED" | "STORAGE_NOT_CONFIGURED" | "STORAGE_UNAVAILABLE" | "INVALID_UPLOAD" | "DOCUMENT_NOT_AVAILABLE";
+export type DocumentServiceErrorCode = "CLAIM_NOT_FOUND" | "CLAIM_ARCHIVED" | "UPLOAD_NOT_FOUND" | "UPLOAD_EXPIRED" | "UPLOAD_IN_PROGRESS" | "UPLOAD_ALREADY_FINALIZED" | "STORAGE_NOT_CONFIGURED" | "STORAGE_UNAVAILABLE" | "INVALID_UPLOAD" | "DOCUMENT_NOT_AVAILABLE";
 
 export class DocumentServiceError extends Error {
   constructor(public readonly code: DocumentServiceErrorCode, public readonly status: number, message: string) {
@@ -85,6 +85,7 @@ function safeStorageError(error: unknown): DocumentServiceError {
 async function getOwnedClaim(clerkUserId: string, claimReference: string) {
   const owned = await getClaimForClient(clerkUserId, claimReference);
   if (!owned) throw new DocumentServiceError("CLAIM_NOT_FOUND", 404, "Claim not found.");
+  if (owned.claim.archivedAt) throw new DocumentServiceError("CLAIM_ARCHIVED", 409, "This archived claim is read-only.");
   return owned;
 }
 

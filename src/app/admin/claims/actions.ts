@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { isOperationalPriority, internalNoteMaxLength } from "@/config/admin-claims";
 import { CLAIM_REFERENCE_PATTERN } from "@/lib/claims/reference";
-import { addInternalClaimNote, assignClaim, assignClaimToSelf, setClaimPriority, unassignClaim, AdminClaimServiceError } from "@/lib/admin/claims/service";
+import { addInternalClaimNote, archiveClaim, assignClaim, assignClaimToSelf, restoreArchivedClaim, setClaimPriority, unassignClaim, AdminClaimServiceError } from "@/lib/admin/claims/service";
 import { requestEvidenceForStaff, reviewDocumentForStaff, reviewEvidenceForStaff, StaffWorkflowError, transitionClaimStatusForStaff } from "@/lib/admin/claims/workflow-service";
 import { cancelClientActionForStaff, completeClientActionForStaff, createClientActionRequirement, StaffActionError } from "@/lib/admin/claims/action-service";
 import { sendStaffClaimMessage, setStaffConversationStatus, StaffMessagingError, loadEarlierStaffMessages } from "@/lib/admin/claims/messaging-service";
@@ -23,6 +23,9 @@ function serviceMessage(error: unknown) {
     if (error.code === "STAFF_NOT_ASSIGNABLE") return "That staff member is not currently available for assignment.";
     if (error.code === "INVALID_PRIORITY") return "Choose a valid operational priority.";
     if (error.code === "INVALID_NOTE") return "Enter a note between 1 and 10,000 characters.";
+    if (error.code === "INVALID_ARCHIVE_REASON") return "Provide an archive reason between 3 and 500 characters.";
+    if (error.code === "ARCHIVED") return "This claim is already archived and cannot be progressed.";
+    if (error.code === "NOT_ARCHIVED") return "This claim is not currently archived.";
     if (error.code === "DUPLICATE") return "This assignment changed at the same time elsewhere. Refresh and try again.";
   }
   if (error instanceof StaffWorkflowError) {
@@ -31,6 +34,7 @@ function serviceMessage(error: unknown) {
     if (error.code === "INVALID_TRANSITION" || error.code === "INVALID_STATUS") return "That workflow transition is no longer available. Refresh and review the current state.";
     if (error.code === "CONCURRENT_CHANGE") return "This record changed while you were working. Refresh and review the current state.";
     if (error.code === "TERMINAL_CLAIM") return "This claim has reached a terminal workflow state.";
+    if (error.code === "ARCHIVED") return "This claim is archived and cannot be progressed until it is restored.";
     if (error.code === "DOCUMENT_NOT_REVIEWABLE" || error.code === "TECHNICAL_STATE_REQUIRED") return "This review action is unavailable until secure document access and validation are available.";
     if (error.code === "INVALID_EVIDENCE_TYPE" || error.code === "INVALID_EVIDENCE_PRIORITY" || error.code === "INVALID_DUE_DATE") return "Check the evidence request details and try again.";
   }
@@ -40,10 +44,12 @@ function serviceMessage(error: unknown) {
     if (error.code === "INVALID_TITLE") return "Enter a short action title.";
     if (error.code === "INVALID_DESCRIPTION") return "Enter a plain-text action description of 5,000 characters or fewer.";
     if (error.code === "TERMINAL_CLAIM") return "Client actions cannot be created on a terminal claim.";
+    if (error.code === "ARCHIVED") return "This claim is archived and cannot be changed until it is restored.";
     if (error.code === "INVALID_STATUS") return "That action has already changed. Refresh and review the current state.";
     if (error.code === "CONCURRENT_CHANGE") return "This action changed while you were working. Refresh and review the current state.";
   }
   if (error instanceof StaffMessagingError) {
+    if (error.code === "ARCHIVED") return "This claim is archived and its correspondence is read-only until it is restored.";
     if (error.code === "CONFIRMATION_REQUIRED") return "Confirm closing this conversation before continuing.";
     if (error.code === "CONVERSATION_CLOSED") return "This conversation is closed.";
     if (error.code === "CONVERSATION_NOT_FOUND") return "This claim does not have an available conversation.";
@@ -181,3 +187,20 @@ async function updateClientActionAction(formData: FormData, mode: "complete" | "
 
 export async function completeClientActionAction(_previous: AdminClaimActionState, formData: FormData): Promise<AdminClaimActionState> { return updateClientActionAction(formData, "complete"); }
 export async function cancelClientActionAction(_previous: AdminClaimActionState, formData: FormData): Promise<AdminClaimActionState> { return updateClientActionAction(formData, "cancel"); }
+
+const archiveReasonSchema = z.string().trim().min(3).max(500);
+
+export async function archiveClaimAction(_previous: AdminClaimActionState, formData: FormData): Promise<AdminClaimActionState> {
+  const userId = await currentUser();
+  const claimReference = claimReferenceSchema.safeParse(formData.get("claimReference"));
+  const reason = archiveReasonSchema.safeParse(formData.get("reason"));
+  if (!userId || !claimReference.success || !reason.success || formData.get("confirmed") !== "true") return { ok: false, message: "Confirm and provide an archive reason before continuing." };
+  try { await archiveClaim(userId, claimReference.data, reason.data); revalidatePath(`/admin/claims/${encodeURIComponent(claimReference.data)}`); revalidatePath("/admin/claims"); revalidatePath("/admin"); return { ok: true, message: "Claim archived. Its workflow controls are now disabled." }; } catch (error) { return { ok: false, message: serviceMessage(error) }; }
+}
+
+export async function restoreClaimAction(_previous: AdminClaimActionState, formData: FormData): Promise<AdminClaimActionState> {
+  const userId = await currentUser();
+  const claimReference = claimReferenceSchema.safeParse(formData.get("claimReference"));
+  if (!userId || !claimReference.success || formData.get("confirmed") !== "true") return { ok: false, message: "Confirm restoration before continuing." };
+  try { await restoreArchivedClaim(userId, claimReference.data); revalidatePath(`/admin/claims/${encodeURIComponent(claimReference.data)}`); revalidatePath("/admin/claims"); revalidatePath("/admin"); return { ok: true, message: "Claim restored to the operational queues." }; } catch (error) { return { ok: false, message: serviceMessage(error) }; }
+}

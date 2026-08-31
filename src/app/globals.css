@@ -2868,3 +2868,35 @@ svg {
 .admin-system-note { min-height: auto; margin-top: 2rem; }
 @media (max-width: 900px) { .admin-management-form, .admin-audit-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }.admin-staff-actions { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .admin-management-form, .admin-audit-filters, .admin-staff-actions { grid-template-columns: 1fr; }.admin-audit-filters > div { align-items: stretch; flex-direction: column; }.admin-audit-filters .button { width: 100%; }.admin-status-grid dl div { align-items: start; flex-direction: column; gap: .35rem; } }
+
+/* Phase 11A account completion and reversible claim archival */
+.account-profile-panel { display: grid; gap: .75rem; padding: clamp(1.1rem, 3vw, 1.75rem); }
+.account-profile-panel h2 { margin: 0; font-size: clamp(1.5rem, 3vw, 2.1rem); font-weight: 500; letter-spacing: -.04em; }
+.account-profile-panel > p:not(.eyebrow) { max-width: 62ch; margin: 0; color: var(--color-text-muted); line-height: 1.6; }
+.account-profile-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; margin-top: .5rem; }
+.account-profile-form label { display: grid; gap: .35rem; color: var(--color-text-muted); font-size: .82rem; }
+.account-profile-form label small, .account-profile-form > p { color: var(--color-text-quiet); font-size: .74rem; line-height: 1.45; }
+.account-profile-form input, .account-profile-form select, .admin-archive-form textarea { width: 100%; min-height: 2.8rem; padding: .65rem .75rem; border: 1px solid var(--color-line-strong); background: rgb(3 14 28 / 82%); color: var(--color-text); font: inherit; }
+.account-profile-form input:focus-visible, .account-profile-form select:focus-visible, .admin-archive-form textarea:focus-visible { border-color: var(--color-accent-cyan); outline: 2px solid rgb(77 216 232 / 35%); outline-offset: 2px; }
+.account-profile-form > p, .account-profile-form__feedback, .account-profile-form > .button { grid-column: 1 / -1; margin: 0; }
+.assessment-record-list, .account-document-index, .claim-history-list ol { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.assessment-record-list { margin-top: 1.5rem; }
+.assessment-record, .account-document-index a, .claim-history-list a { display: flex; min-height: 4rem; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid var(--color-line); background: rgb(7 21 40 / 54%); color: var(--color-text); transition: border-color var(--duration-quick) ease, padding var(--duration-standard) var(--ease-out); }
+.assessment-record:hover, .account-document-index a:hover, .claim-history-list a:hover { padding-inline: 1.2rem; border-color: var(--color-accent-cyan); }
+.assessment-record h2, .account-document-index strong, .claim-history-list h2 { margin: .25rem 0; }
+.assessment-record p, .account-document-index span, .account-document-index small, .claim-history-list p { margin: 0; color: var(--color-text-muted); }
+.assessment-record__meta, .account-document-index a > div:last-child { display: grid; gap: .35rem; color: var(--color-text-quiet); font-size: .76rem; text-align: right; }
+.assessment-answers { display: grid; gap: 1rem; margin-top: 2rem; }
+.assessment-answers > section { padding: 1rem 0; border-top: 1px solid var(--color-line); }
+.assessment-answers h3 { margin: 0 0 .75rem; text-transform: capitalize; }
+.assessment-answers dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1.5rem; margin: 0; }
+.assessment-answers dt { color: var(--color-text-muted); font-size: .8rem; }
+.assessment-answers dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.claim-history-list { display: grid; gap: .7rem; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-line-strong); }
+.claim-history-list h2, .claim-history-list p { margin: 0; }
+.claim-history-list a { justify-content: flex-start; }
+.claim-history-list a span { color: var(--color-text-muted); }
+.admin-archive-panel { border-left: 2px solid var(--color-accent-ice); }
+.admin-archive-form { display: grid; gap: .75rem; }
+.admin-archive-form textarea { min-height: 6rem; resize: vertical; }
+@media (max-width: 700px) { .account-profile-form, .assessment-answers dl { grid-template-columns: 1fr; }.assessment-record, .account-document-index a { align-items: start; flex-direction: column; }.assessment-record__meta, .account-document-index a > div:last-child { text-align: left; }.admin-archive-form .button { width: 100%; } }

@@ -14,7 +14,7 @@ import { requirePermission } from "@/lib/staff/authorization";
 import { createClaimNotificationInTransaction } from "@/lib/notifications/repository";
 
 export class StaffActionError extends Error {
-  constructor(public readonly code: "CLAIM_NOT_FOUND" | "ACTION_NOT_FOUND" | "INVALID_TYPE" | "INVALID_PRIORITY" | "INVALID_TITLE" | "INVALID_DESCRIPTION" | "INVALID_DUE_DATE" | "TERMINAL_CLAIM" | "INVALID_STATUS" | "CONCURRENT_CHANGE" | "FORBIDDEN") { super(code); this.name = "StaffActionError"; }
+  constructor(public readonly code: "CLAIM_NOT_FOUND" | "ACTION_NOT_FOUND" | "INVALID_TYPE" | "INVALID_PRIORITY" | "INVALID_TITLE" | "INVALID_DESCRIPTION" | "INVALID_DUE_DATE" | "TERMINAL_CLAIM" | "ARCHIVED" | "INVALID_STATUS" | "CONCURRENT_CHANGE" | "FORBIDDEN") { super(code); this.name = "StaffActionError"; }
 }
 
 function parseDueDate(value?: string) {
@@ -32,7 +32,7 @@ async function actorInTransaction(executor: StaffDbExecutor, clerkUserId: string
 }
 
 async function claimByReference(executor: StaffDbExecutor, claimReference: string) {
-  return (await executor.select({ id: claims.id, status: claims.status }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
+  return (await executor.select({ id: claims.id, status: claims.status, archivedAt: claims.archivedAt }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
 }
 
 function terminal(status: string) { return ["COMPLETED", "CLOSED", "NOT_ELIGIBLE"].includes(status); }
@@ -50,6 +50,7 @@ export async function createClientActionRequirement(clerkUserId: string, claimRe
     const actor = await actorInTransaction(tx, clerkUserId);
     const claim = await claimByReference(tx, claimReference);
     if (!claim) throw new StaffActionError("CLAIM_NOT_FOUND");
+    if (claim.archivedAt) throw new StaffActionError("ARCHIVED");
     if (terminal(claim.status)) throw new StaffActionError("TERMINAL_CLAIM");
     if (requestId) {
       const existing = (await tx.select({ actionReference: claimActionRequirements.actionReference }).from(claimActionRequirements).where(and(eq(claimActionRequirements.claimId, claim.id), eq(claimActionRequirements.clientRequestId, requestId))).limit(1))[0];
@@ -70,6 +71,7 @@ async function changeAction(clerkUserId: string, claimReference: string, actionR
     const actor = await actorInTransaction(tx, clerkUserId);
     const claim = await claimByReference(tx, claimReference);
     if (!claim) throw new StaffActionError("CLAIM_NOT_FOUND");
+    if (claim.archivedAt) throw new StaffActionError("ARCHIVED");
     const current = (await tx.select().from(claimActionRequirements).where(and(eq(claimActionRequirements.claimId, claim.id), eq(claimActionRequirements.actionReference, actionReference))).limit(1))[0];
     if (!current) throw new StaffActionError("ACTION_NOT_FOUND");
     if (current.status !== "OPEN") throw new StaffActionError("INVALID_STATUS");

@@ -27,7 +27,10 @@ export default async function AccountClaimsPage() {
     return <div className="account-page"><AccountPageHeader title="My Claims" description="Your claim index is temporarily unavailable. Please try again shortly." /></div>;
   }
 
-  if (claims.length === 0) {
+  const activeClaims = claims.filter((claim) => !claim.archivedAt);
+  const archivedClaims = claims.filter((claim) => claim.archivedAt);
+
+  if (activeClaims.length === 0 && archivedClaims.length === 0) {
     return (
       <div className="account-page">
         <AccountPageHeader title="My Claims" description="A secure place to follow Claims Bridge case records you have explicitly chosen to create." />
@@ -35,7 +38,7 @@ export default async function AccountClaimsPage() {
           <div className="glass-surface__content account-empty__content">
             <span className="account-empty__symbol" aria-hidden="true">↗</span>
             <div><p className="eyebrow">No claim records yet</p><h2 id="claims-empty-title">You don&apos;t have an active Claims Bridge claim yet.</h2><p>Start with a preliminary eligibility assessment. You decide separately whether to continue and create a claim record.</p></div>
-            <div className="claim-empty__actions"><Link className="button button--primary button--medium" href="/check-eligibility"><span className="button__label">Check eligibility</span></Link><Link className="text-link" href="/account/assessment">Review saved assessment</Link></div>
+            <div className="claim-empty__actions"><Link className="button button--primary button--medium" href="/check-eligibility"><span className="button__label">Check eligibility</span></Link><Link className="text-link" href="/account/assessments">Review saved assessments</Link></div>
           </div>
         </section>
       </div>
@@ -46,9 +49,9 @@ export default async function AccountClaimsPage() {
     <div className="account-page">
       <AccountPageHeader title="My Claims" description="Your persisted Claims Bridge case records, with the current workflow stage and next known step." />
       <section className="claim-index" aria-labelledby="claim-index-title">
-        <div className="claim-index__heading"><div><p className="eyebrow">Your claim index</p><h2 id="claim-index-title">{claims.length} {claims.length === 1 ? "claim" : "claims"}</h2></div><span className="claim-index__note">Status reflects workflow state, not legal success.</span></div>
+        <div className="claim-index__heading"><div><p className="eyebrow">Your claim index</p><h2 id="claim-index-title">{activeClaims.length} active {activeClaims.length === 1 ? "claim" : "claims"}</h2></div><span className="claim-index__note">Status reflects workflow state, not legal success.</span></div>
         <ol className="claim-index__list">
-          {claims.map((claim) => (
+          {activeClaims.map((claim) => (
             <li key={claim.id}>
               <Link className="claim-card" href={`/account/claims/${encodeURIComponent(claim.claimReference)}`}>
                 <div className="claim-card__top"><ClaimReference reference={claim.claimReference} /><ClaimStatus status={claim.status} /></div>
@@ -59,6 +62,7 @@ export default async function AccountClaimsPage() {
             </li>
           ))}
         </ol>
+        {archivedClaims.length > 0 && <section className="claim-history-list" aria-labelledby="archived-claims-title"><p className="eyebrow">Archived history</p><h2 id="archived-claims-title">Retained claim records</h2><p>Archived records are retained for integrity and are not active workflows.</p><ol>{archivedClaims.map((claim) => <li key={claim.id}><Link href={`/account/claims/${encodeURIComponent(claim.claimReference)}`}><ClaimReference reference={claim.claimReference} /><span>Archived {claim.archivedAt?.toLocaleDateString("en-GB")}</span></Link></li>)}</ol></section>}
       </section>
     </div>
   );

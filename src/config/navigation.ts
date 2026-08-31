@@ -111,6 +111,7 @@ export const publicNavigation: NavigationSection[] = [
 
 export const accountNavigation: NavigationItem[] = [
   { label: "Overview", href: "/account" },
+  { label: "Assessments", href: "/account/assessments" },
   { label: "My claims", href: "/account/claims" },
   { label: "Documents", href: "/account/documents" },
   { label: "Messages", href: "/account/messages" },
@@ -129,7 +130,6 @@ export function claimNavigation(claimId: string): NavigationItem[] {
     { label: "Evidence", href: `${root}/evidence` },
     { label: "Documents", href: `${root}/documents` },
     { label: "Messages", href: `${root}/messages` },
-    { label: "Updates", href: `${root}/updates` },
     { label: "Claim details", href: `${root}/details` },
   ];
 }

@@ -6,7 +6,7 @@ export function ClaimCapabilityUnavailable({ title, description }: { title: stri
     <div className="account-page claim-page">
       <AccountPageHeader eyebrow="Claim workspace" title={title} description={description} />
       <GlassSurface className="claim-capability-unavailable" strength="medium">
-        <div className="claim-capability-unavailable__content"><span className="eyebrow">Not activated yet</span><h2>This capability is being prepared.</h2><p>There is no client action or placeholder claim data here. When this workspace is activated, it will show information connected to this claim.</p></div>
+        <div className="claim-capability-unavailable__content"><span className="eyebrow">Unavailable</span><h2>This claim capability is unavailable.</h2><p>Claims Bridge could not load this information in the current environment. No substitute claim data is shown.</p></div>
       </GlassSurface>
     </div>
   );

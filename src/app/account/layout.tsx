@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     default: "Client workspace",
     template: "%s — Claims Bridge account",
   },
-  description: "Claims Bridge client portal foundation.",
+  description: "Claims Bridge client portal.",
   robots: { index: false, follow: false },
 };
 

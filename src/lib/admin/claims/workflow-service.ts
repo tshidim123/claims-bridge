@@ -17,7 +17,7 @@ import { requirePermission } from "@/lib/staff/authorization";
 import { staffUsers } from "@/lib/db/schema/staff";
 
 export class StaffWorkflowError extends Error {
-  constructor(public readonly code: "CLAIM_NOT_FOUND" | "REQUIREMENT_NOT_FOUND" | "DOCUMENT_NOT_FOUND" | "INVALID_STATUS" | "INVALID_TRANSITION" | "TERMINAL_CLAIM" | "CONFIRMATION_REQUIRED" | "INVALID_EVIDENCE_TYPE" | "INVALID_EVIDENCE_PRIORITY" | "INVALID_DUE_DATE" | "DUPLICATE_REQUEST" | "DOCUMENT_NOT_REVIEWABLE" | "TECHNICAL_STATE_REQUIRED" | "CONCURRENT_CHANGE" | "FORBIDDEN") {
+  constructor(public readonly code: "CLAIM_NOT_FOUND" | "REQUIREMENT_NOT_FOUND" | "DOCUMENT_NOT_FOUND" | "INVALID_STATUS" | "INVALID_TRANSITION" | "TERMINAL_CLAIM" | "ARCHIVED" | "CONFIRMATION_REQUIRED" | "INVALID_EVIDENCE_TYPE" | "INVALID_EVIDENCE_PRIORITY" | "INVALID_DUE_DATE" | "DUPLICATE_REQUEST" | "DOCUMENT_NOT_REVIEWABLE" | "TECHNICAL_STATE_REQUIRED" | "CONCURRENT_CHANGE" | "FORBIDDEN") {
     super(code);
     this.name = "StaffWorkflowError";
   }
@@ -37,7 +37,14 @@ async function getActorInTransaction(executor: StaffDbExecutor, clerkUserId: str
 }
 
 async function claimIdForReference(executor: StaffDbExecutor, claimReference: string) {
-  return (await executor.select({ id: claims.id, status: claims.status }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
+  return (await executor.select({ id: claims.id, status: claims.status, archivedAt: claims.archivedAt }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
+}
+
+function ensureWorkflowClaim<T extends { status: ClaimStatus; archivedAt: Date | null }>(claim: T | undefined): T {
+  if (!claim) throw new StaffWorkflowError("CLAIM_NOT_FOUND");
+  if (claim.archivedAt) throw new StaffWorkflowError("ARCHIVED");
+  if (isTerminalClaimStatus(claim.status)) throw new StaffWorkflowError("TERMINAL_CLAIM");
+  return claim;
 }
 
 export function getAllowedClaimTransitions(status: ClaimStatus) {
@@ -52,15 +59,14 @@ export async function transitionClaimStatusForStaff(clerkUserId: string, claimRe
   const db = getDb();
   return db.transaction(async (tx) => {
     const actor = await getActorInTransaction(tx, clerkUserId, "CLAIMS_TRANSITION_STATUS");
-    const claim = await claimIdForReference(tx, claimReference);
-    if (!claim) throw new StaffWorkflowError("CLAIM_NOT_FOUND");
-    if (isTerminalClaimStatus(claim.status)) throw new StaffWorkflowError("TERMINAL_CLAIM");
+    const claim = ensureWorkflowClaim(await claimIdForReference(tx, claimReference));
     let transition;
     try {
       transition = await transitionClaimStatusInTransaction(tx, claim.id, requestedStatus, { actorType: "STAFF" });
     } catch (error) {
       const code = error instanceof Error ? (error as { code?: string }).code : undefined;
       if (code === "INVALID_STATUS" || code === "INVALID_TRANSITION") throw new StaffWorkflowError(code);
+      if (code === "CLAIM_ARCHIVED") throw new StaffWorkflowError("ARCHIVED");
       if (code === "TERMINAL_STATUS") throw new StaffWorkflowError("TERMINAL_CLAIM");
       if (code === "CONCURRENT_TRANSITION") throw new StaffWorkflowError("CONCURRENT_CHANGE");
       throw error;
@@ -86,9 +92,7 @@ export async function requestEvidenceForStaff(clerkUserId: string, claimReferenc
   const db = getDb();
   return db.transaction(async (tx) => {
     const actor = await getActorInTransaction(tx, clerkUserId, "EVIDENCE_REQUEST");
-    const claim = await claimIdForReference(tx, claimReference);
-    if (!claim) throw new StaffWorkflowError("CLAIM_NOT_FOUND");
-    if (isTerminalClaimStatus(claim.status)) throw new StaffWorkflowError("TERMINAL_CLAIM");
+    const claim = ensureWorkflowClaim(await claimIdForReference(tx, claimReference));
     const result = await requestEvidenceInTransaction(tx, claim.id, evidenceType, { required: options.required ?? true, priority: (options.priority as EvidenceRequirementPriority | undefined) ?? "NORMAL", clientVisible: true, dueAt });
     if (!result.requirement.clientVisible) throw new StaffWorkflowError("FORBIDDEN");
     if (!result.created) return { requirementReference: result.requirement.requirementReference, created: false };
@@ -104,9 +108,7 @@ export async function reviewEvidenceForStaff(clerkUserId: string, claimReference
   const db = getDb();
   return db.transaction(async (tx) => {
     const actor = await getActorInTransaction(tx, clerkUserId, "EVIDENCE_REVIEW");
-    const claim = await claimIdForReference(tx, claimReference);
-    if (!claim) throw new StaffWorkflowError("CLAIM_NOT_FOUND");
-    if (isTerminalClaimStatus(claim.status)) throw new StaffWorkflowError("TERMINAL_CLAIM");
+    const claim = ensureWorkflowClaim(await claimIdForReference(tx, claimReference));
     const requirement = (await tx.select({ id: claimEvidenceRequirements.id, status: claimEvidenceRequirements.status, clientVisible: claimEvidenceRequirements.clientVisible }).from(claimEvidenceRequirements).where(and(eq(claimEvidenceRequirements.claimId, claim.id), eq(claimEvidenceRequirements.requirementReference, requirementReference))).limit(1))[0];
     if (!requirement) throw new StaffWorkflowError("REQUIREMENT_NOT_FOUND");
     if (!requirement.clientVisible) throw new StaffWorkflowError("FORBIDDEN");
@@ -132,9 +134,7 @@ export async function reviewDocumentForStaff(clerkUserId: string, claimReference
   const db = getDb();
   return db.transaction(async (tx) => {
     const actor = await getActorInTransaction(tx, clerkUserId, "DOCUMENTS_REVIEW");
-    const claim = await claimIdForReference(tx, claimReference);
-    if (!claim) throw new StaffWorkflowError("CLAIM_NOT_FOUND");
-    if (isTerminalClaimStatus(claim.status)) throw new StaffWorkflowError("TERMINAL_CLAIM");
+    const claim = ensureWorkflowClaim(await claimIdForReference(tx, claimReference));
     let result;
     try {
       result = await transitionDocumentStatusInTransaction(tx, claim.id, documentReference, requestedStatus);

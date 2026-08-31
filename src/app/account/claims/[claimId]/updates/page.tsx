@@ -1,7 +1,8 @@
-import { ClaimCapabilityUnavailable } from "@/components/claims/claim-capability-unavailable";
+import { redirect } from "next/navigation";
 
 export const metadata = { title: "Claim updates" };
 
-export default function ClaimUpdatesPage() {
-  return <ClaimCapabilityUnavailable title="Claim updates" description="A dedicated updates workspace will bring together future milestones and client-visible changes for this claim." />;
+export default async function ClaimUpdatesPage({ params }: { params: Promise<{ claimId: string }> }) {
+  const { claimId } = await params;
+  redirect(`/account/claims/${encodeURIComponent(claimId)}/timeline`);
 }

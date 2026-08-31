@@ -17,7 +17,7 @@ const PAGE_SIZE = 50;
 type MessageCursor = { createdAt: string; id: string };
 
 export class StaffMessagingError extends Error {
-  constructor(public readonly code: "CLAIM_NOT_FOUND" | "CONVERSATION_NOT_FOUND" | "FORBIDDEN" | "CONVERSATION_CLOSED" | "INVALID_MESSAGE" | "INVALID_CURSOR" | "CONCURRENT_CHANGE" | "CONFIRMATION_REQUIRED") { super(code); this.name = "StaffMessagingError"; }
+  constructor(public readonly code: "CLAIM_NOT_FOUND" | "CONVERSATION_NOT_FOUND" | "FORBIDDEN" | "ARCHIVED" | "CONVERSATION_CLOSED" | "INVALID_MESSAGE" | "INVALID_CURSOR" | "CONCURRENT_CHANGE" | "CONFIRMATION_REQUIRED") { super(code); this.name = "StaffMessagingError"; }
 }
 
 function encodeCursor(message: { id: string; createdAt: Date }) { return Buffer.from(JSON.stringify({ id: message.id, createdAt: message.createdAt.toISOString() })).toString("base64url"); }
@@ -33,7 +33,7 @@ async function actorInTransaction(executor: StaffDbExecutor, clerkUserId: string
 }
 
 async function claimConversation(executor: StaffDbExecutor, claimReference: string) {
-  return (await executor.select({ claimId: claims.id, conversationId: claimConversations.id, conversationStatus: claimConversations.status }).from(claims).leftJoin(claimConversations, eq(claimConversations.claimId, claims.id)).where(eq(claims.claimReference, claimReference)).limit(1))[0];
+  return (await executor.select({ claimId: claims.id, archivedAt: claims.archivedAt, conversationId: claimConversations.id, conversationStatus: claimConversations.status }).from(claims).leftJoin(claimConversations, eq(claimConversations.claimId, claims.id)).where(eq(claims.claimReference, claimReference)).limit(1))[0];
 }
 
 async function unreadForStaff(executor: StaffDbExecutor, conversationId: string, staffId: string) {
@@ -77,6 +77,7 @@ async function requireClaimActor(executor: StaffDbExecutor, clerkUserId: string,
   const actor = await actorInTransaction(executor, clerkUserId, permission);
   const claim = await claimConversation(executor, claimReference);
   if (!claim) throw new StaffMessagingError("CLAIM_NOT_FOUND");
+  if (claim.archivedAt) throw new StaffMessagingError("ARCHIVED");
   return { actor, claim };
 }
 

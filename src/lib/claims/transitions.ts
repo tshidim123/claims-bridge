@@ -11,7 +11,7 @@ import { createClaimNotificationInTransaction } from "@/lib/notifications/reposi
 import type { StaffDbExecutor } from "@/lib/staff/audit";
 
 export class ClaimTransitionError extends Error {
-  constructor(public readonly code: "CLAIM_NOT_FOUND" | "INVALID_STATUS" | "INVALID_TRANSITION" | "TERMINAL_STATUS" | "CONCURRENT_TRANSITION") {
+  constructor(public readonly code: "CLAIM_NOT_FOUND" | "CLAIM_ARCHIVED" | "INVALID_STATUS" | "INVALID_TRANSITION" | "TERMINAL_STATUS" | "CONCURRENT_TRANSITION") {
     super(code);
     this.name = "ClaimTransitionError";
   }
@@ -23,6 +23,7 @@ export async function transitionClaimStatusInTransaction(executor: StaffDbExecut
   if (!isClaimStatus(requestedStatus)) throw new ClaimTransitionError("INVALID_STATUS");
   const current = (await executor.select().from(claims).where(eq(claims.id, claimId)).limit(1))[0];
   if (!current) throw new ClaimTransitionError("CLAIM_NOT_FOUND");
+  if (current.archivedAt) throw new ClaimTransitionError("CLAIM_ARCHIVED");
   if (!isClaimStatus(current.status)) throw new ClaimTransitionError("INVALID_STATUS");
   if (isTerminalClaimStatus(current.status)) throw new ClaimTransitionError("TERMINAL_STATUS");
   if (!canTransitionClaimStatus(current.status, requestedStatus)) throw new ClaimTransitionError("INVALID_TRANSITION");

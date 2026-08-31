@@ -30,6 +30,7 @@ import { calculateReadingTime, getArticleBreadcrumbs, getArticleBySlug, getArtic
 import { clientActionConfig, clientActionStatuses, clientActionTypes } from "../src/config/client-actions";
 import { CLIENT_ACTION_REFERENCE_PATTERN, createClientActionReference } from "../src/lib/actions/keys";
 import { CLIENT_REFERENCE_PATTERN, createClientReference } from "../src/lib/clients/reference";
+import { ASSESSMENT_REFERENCE_PATTERN, createAssessmentReference } from "../src/lib/eligibility/persistence/reference";
 
 test("claim references use the documented secure format", () => {
   const reference = generateClaimReference(new Date("2026-08-28T00:00:00.000Z"));
@@ -755,4 +756,45 @@ test("public navigation uses stable item identifiers for duplicate destinations"
   assert.equal(items.filter((item) => item.href === "/guides/deposit-protection").length, 3);
   assert.match(header, /key=\{item\.id\}/);
   assert.match(rootLayout, /data-scroll-behavior="smooth"/);
+});
+
+test("Phase 11A uses opaque assessment references, real account routes, and reversible claim archival", () => {
+  const assessmentReferences = new Set(Array.from({ length: 100 }, () => createAssessmentReference()));
+  assert.equal(assessmentReferences.size, 100);
+  for (const reference of assessmentReferences) assert.match(reference, ASSESSMENT_REFERENCE_PATTERN);
+
+  const migration = fs.readFileSync(path.resolve("drizzle/0016_orange_mesmero.sql"), "utf8");
+  const claimsSchema = fs.readFileSync(path.resolve("src/lib/db/schema/claims.ts"), "utf8");
+  const assessmentSchema = fs.readFileSync(path.resolve("src/lib/db/schema/eligibility.ts"), "utf8");
+  const archiveService = fs.readFileSync(path.resolve("src/lib/admin/claims/service.ts"), "utf8");
+  const accountProfile = fs.readFileSync(path.resolve("src/app/account/profile/page.tsx"), "utf8");
+  const accountDocuments = fs.readFileSync(path.resolve("src/app/account/documents/page.tsx"), "utf8");
+  const assessmentIndex = fs.readFileSync(path.resolve("src/app/account/assessments/page.tsx"), "utf8");
+  const assessmentDetail = fs.readFileSync(path.resolve("src/app/account/assessments/[assessmentReference]/page.tsx"), "utf8");
+  const adminClientProfile = fs.readFileSync(path.resolve("src/app/admin/clients/[clientReference]/page.tsx"), "utf8");
+  const adminAssessmentDetail = fs.readFileSync(path.resolve("src/app/admin/clients/[clientReference]/assessments/[assessmentReference]/page.tsx"), "utf8");
+  const claimNavigation = fs.readFileSync(path.resolve("src/config/navigation.ts"), "utf8");
+  const verifier = fs.readFileSync(path.resolve("scripts/verify-db.mjs"), "utf8");
+
+  assert.match(migration, /assessment_reference/);
+  assert.match(migration, /archived_at/);
+  assert.match(migration, /CLAIM_ARCHIVED/);
+  assert.match(migration, /CLAIM_RESTORED/);
+  assert.match(migration, /UPDATE "eligibility_assessments"/);
+  assert.match(assessmentSchema, /assessmentReference/);
+  assert.match(claimsSchema, /archivedAt/);
+  assert.match(archiveService, /CLAIMS_ARCHIVE/);
+  assert.match(archiveService, /archiveReason/);
+  assert.match(archiveService, /restoreArchivedClaim/);
+  assert.match(accountProfile, /ClientProfileForm/);
+  assert.doesNotMatch(accountProfile, /AccountPlaceholder/);
+  assert.match(accountDocuments, /getDocumentIndexForClient/);
+  assert.match(assessmentIndex, /getAssessmentsForClient/);
+  assert.match(assessmentDetail, /getVisibleQuestions/);
+  assert.match(adminClientProfile, /getClientAssessmentsForAdmin/);
+  assert.match(adminAssessmentDetail, /getClientAssessmentForAdmin/);
+  assert.match(adminAssessmentDetail, /getVisibleQuestions/);
+  assert.doesNotMatch(claimNavigation, /label: "Updates"/);
+  assert.match(verifier, /claim_migrations_recorded/);
+  assert.match(verifier, /\) = 17/);
 });

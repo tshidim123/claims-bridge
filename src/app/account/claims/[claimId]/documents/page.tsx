@@ -27,7 +27,7 @@ export default async function ClaimDocumentsPage({ params, searchParams }: { par
 
   return (
     <div className="account-page documents-page">
-      <AccountPageHeader eyebrow="Your Claims Bridge claim" title="Document Vault" description="A claim-specific space for document metadata and future secure private storage. Uploads are not active in this phase." />
+      <AccountPageHeader eyebrow="Your Claims Bridge claim" title="Document Vault" description={isR2Configured() ? "A claim-specific space for secure document metadata and uploads linked to eligible evidence requests." : "A claim-specific space for document metadata. Secure uploads and downloads are unavailable until private document storage is configured."} />
       <div className="evidence-page__reference"><ClaimReference reference={workspace.claim.claimReference} /><span>Document workspace</span></div>
       <DocumentVault documents={workspace.documents} requirements={workspace.requirements} claimReference={workspace.claim.claimReference} initialRequirementType={initialRequirementType} storageConfigured={isR2Configured()} />
     </div>

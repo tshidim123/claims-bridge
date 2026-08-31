@@ -8,7 +8,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { buildAssessmentOutcome } from "@/lib/eligibility/outcome";
 import { getLatestAssessmentForClient } from "@/lib/eligibility/persistence/repository";
 import { assessmentPayloadSchema } from "@/lib/eligibility/persistence/validation";
-import { getClaimByAssessmentForClient } from "@/lib/claims/repository";
+import { getClaimByAssessmentReferenceForClient } from "@/lib/claims/repository";
 
 export default async function AssessmentPage() {
   const { userId } = await auth();
@@ -19,7 +19,7 @@ export default async function AssessmentPage() {
   let existingClaim;
   try {
     row = await getLatestAssessmentForClient(userId);
-    if (row) existingClaim = await getClaimByAssessmentForClient(userId, row.id);
+    if (row) existingClaim = await getClaimByAssessmentReferenceForClient(userId, row.assessmentReference);
   } catch {
     return <div className="account-page"><AccountPageHeader title="Your assessment" description="Your saved assessment is temporarily unavailable. Please try again shortly." /></div>;
   }
@@ -41,7 +41,7 @@ export default async function AssessmentPage() {
             {row.completedAt && <span>Completed {row.completedAt.toLocaleDateString("en-GB")}</span>}
           </div>
           {outcome && <div className="assessment-summary__outcome"><h2>{outcome.headline}</h2><p>{outcome.explanation}</p><h3>Evidence that may help</h3><ul>{outcome.evidence.map((item) => <li key={item.id}>{item.label} — {item.description}</li>)}</ul></div>}
-          {existingClaim ? <div className="assessment-claim-link"><div><p className="eyebrow">Claim created</p><h2>Your Claims Bridge claim</h2><ClaimStatus status={existingClaim.status} /></div><ButtonLink variant="secondary" href={`/account/claims/${encodeURIComponent(existingClaim.claimReference)}`}>View my claim</ButtonLink></div> : assessmentComplete ? <ClaimCreationForm assessmentId={row.id} /> : <p className="assessment-summary__notice">Complete the assessment before choosing whether to continue to claim review.</p>}
+          {existingClaim ? <div className="assessment-claim-link"><div><p className="eyebrow">Claim created</p><h2>Your Claims Bridge claim</h2><ClaimStatus status={existingClaim.status} /></div><ButtonLink variant="secondary" href={`/account/claims/${encodeURIComponent(existingClaim.claimReference)}`}>View my claim</ButtonLink></div> : assessmentComplete ? <ClaimCreationForm assessmentReference={row.assessmentReference} /> : <p className="assessment-summary__notice">Complete the assessment before choosing whether to continue to claim review.</p>}
         </div>
       </GlassSurface>
     </div>

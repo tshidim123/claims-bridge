@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { operationalPriorities, operationalPriorityLabels } from "@/config/admin-claims";
-import { addInternalNoteAction, assignClaimAction, setClaimPriorityAction, unassignClaimAction, type AdminClaimActionState } from "@/app/admin/claims/actions";
+import { addInternalNoteAction, archiveClaimAction, assignClaimAction, restoreClaimAction, setClaimPriorityAction, unassignClaimAction, type AdminClaimActionState } from "@/app/admin/claims/actions";
 
 const initialState: AdminClaimActionState = { ok: false };
 
@@ -31,4 +31,12 @@ export function AdminClaimControls({ claimReference, currentPriority, currentSta
 export function AdminInternalNoteForm({ claimReference }: { claimReference: string }) {
   const [state, action, pending] = useActionState(addInternalNoteAction, initialState);
   return <form action={action} className="admin-note-form"><label htmlFor="internal-note">Add a private internal note</label><textarea id="internal-note" name="body" maxLength={10000} placeholder="Record an operational observation for Claims Bridge staff only." aria-describedby="internal-note-help internal-note-status" disabled={pending} /><div className="admin-note-form__footer"><span id="internal-note-help">Plain text only · maximum 10,000 characters</span><input type="hidden" name="claimReference" value={claimReference} /><button className="button button--small button--primary" type="submit" disabled={pending}><span className="button__label">{pending ? "Adding…" : "Add private note"}</span></button></div><p id="internal-note-status" className={state.ok ? "admin-form-feedback" : "admin-form-feedback admin-form-feedback--error"} role={state.message ? (state.ok ? "status" : "alert") : undefined}>{state.message}</p></form>;
+}
+
+export function AdminClaimArchiveControls({ claimReference, archivedAt, canArchive }: { claimReference: string; archivedAt: string | null; canArchive: boolean }) {
+  const [archiveState, archiveAction, archivePending] = useActionState(archiveClaimAction, initialState);
+  const [restoreState, restoreAction, restorePending] = useActionState(restoreClaimAction, initialState);
+  if (!canArchive) return null;
+  if (archivedAt) return <section className="admin-control-panel admin-archive-panel" aria-labelledby="admin-restore-title"><p className="eyebrow">Archived claim</p><h2 id="admin-restore-title">Restore this claim</h2><p>This record has been removed from active operational queues since {new Date(archivedAt).toLocaleDateString("en-GB")}. Restoring it makes its existing workflow available again.</p><form action={restoreAction} className="admin-inline-form"><input type="hidden" name="claimReference" value={claimReference} /><label className="admin-confirmation"><input type="checkbox" name="confirmed" value="true" required /> I confirm that this claim should return to the active operational workflow.</label><SubmitButton pending={restorePending ? "Restoring…" : "Restore claim"}>Restore claim</SubmitButton></form><Feedback state={restoreState} /></section>;
+  return <section className="admin-control-panel admin-archive-panel" aria-labelledby="admin-archive-title"><p className="eyebrow">Restricted operation</p><h2 id="admin-archive-title">Archive claim</h2><p>Archiving removes this claim from active queues without deleting its history, evidence, correspondence, or audit trail. Its workflow controls will be disabled until it is restored.</p><form action={archiveAction} className="admin-archive-form"><input type="hidden" name="claimReference" value={claimReference} /><label htmlFor="archive-reason">Reason for archive<textarea id="archive-reason" name="reason" required minLength={3} maxLength={500} /></label><label className="admin-confirmation"><input type="checkbox" name="confirmed" value="true" required /> I confirm that this claim should be archived rather than permanently deleted.</label><SubmitButton pending={archivePending ? "Archiving…" : "Archive claim"}>Archive claim</SubmitButton></form><Feedback state={archiveState} /></section>;
 }

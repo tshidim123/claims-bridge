@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { AccountPageHeader } from "@/components/account/account-page-header";
 import { AccountPlaceholder } from "@/components/account/account-placeholder";
 import { DashboardCommandCentre } from "@/components/dashboard/dashboard-command-centre";
-import { StatusArchitecture } from "@/components/claims/status-architecture";
 import { getClientDashboard } from "@/lib/dashboard/service";
 
 export const metadata = { title: "Overview" };
@@ -12,7 +11,7 @@ export const metadata = { title: "Overview" };
 export default async function AccountOverviewPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in?redirect_url=%2Faccount");
-  if (!process.env.DATABASE_URL) return <AccountPlaceholder title="Overview" description="Your Claims Bridge client workspace is temporarily unavailable while account data is configured."><StatusArchitecture /></AccountPlaceholder>;
+  if (!process.env.DATABASE_URL) return <AccountPlaceholder title="Overview" description="Your Claims Bridge client workspace is temporarily unavailable because account data is not configured in this environment." />;
   let dashboard;
   try {
     dashboard = await getClientDashboard(userId);

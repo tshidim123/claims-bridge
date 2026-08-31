@@ -12,7 +12,7 @@ type DbTransaction = Parameters<DbClient["transaction"]>[0] extends (tx: infer T
 export type ActionDbExecutor = DbClient | DbTransaction;
 
 export class ClientActionError extends Error {
-  constructor(public readonly code: "NOT_FOUND" | "INVALID_STATUS" | "NOT_CLIENT_COMPLETABLE" | "CONCURRENT_CHANGE") {
+  constructor(public readonly code: "NOT_FOUND" | "ARCHIVED" | "INVALID_STATUS" | "NOT_CLIENT_COMPLETABLE" | "CONCURRENT_CHANGE") {
     super(code);
     this.name = "ClientActionError";
   }
@@ -28,6 +28,7 @@ export async function getClientActionRequirementsForClaim(clerkUserId: string, c
 export async function completeClientActionForClient(clerkUserId: string, claimReference: string, actionReference: string) {
   const owned = await getClaimForClient(clerkUserId, claimReference);
   if (!owned) throw new ClientActionError("NOT_FOUND");
+  if (owned.claim.archivedAt) throw new ClientActionError("ARCHIVED");
   const db = getDb();
   return db.transaction(async (tx) => {
     const current = (await tx.select({ id: claimActionRequirements.id, type: claimActionRequirements.type, status: claimActionRequirements.status }).from(claimActionRequirements).where(and(eq(claimActionRequirements.claimId, owned.claim.id), eq(claimActionRequirements.actionReference, actionReference), eq(claimActionRequirements.clientVisible, true))).limit(1))[0];

@@ -18,10 +18,10 @@ export function AccountPlaceholder({ children, description, title }: AccountPlac
         <div className="glass-surface__content account-empty__content">
           <span className="account-empty__symbol" aria-hidden="true"><Icon name="shield" /></span>
           <div>
-            <p className="eyebrow">Foundation state</p>
-            <h2 id="empty-state-title">No live account data is connected.</h2>
+            <p className="eyebrow">Service unavailable</p>
+            <h2 id="empty-state-title">This account area is temporarily unavailable.</h2>
             <p>
-              This route is ready for future authentication, case data and workflow services. It intentionally contains no invented client or claim information.
+              Claims Bridge could not load this account data right now. No client or claim information has been substituted while it is unavailable.
             </p>
           </div>
           <Link className="text-link" href="/support">

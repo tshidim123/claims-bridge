@@ -21,6 +21,7 @@ const clientClaimColumns = {
   updatedAt: claims.updatedAt,
   submittedAt: claims.submittedAt,
   closedAt: claims.closedAt,
+  archivedAt: claims.archivedAt,
 } as const;
 
 export class ClaimDomainError extends Error {
@@ -44,6 +45,14 @@ export async function getClaimByAssessmentForClient(clerkUserId: string, eligibi
   const db = getDb();
   const clientProfileId = await getOwnedProfileId(db, clerkUserId);
   return (await db.select(clientClaimColumns).from(claims).where(and(eq(claims.clientProfileId, clientProfileId), eq(claims.eligibilityAssessmentId, eligibilityAssessmentId))).limit(1))[0];
+}
+
+export async function getClaimByAssessmentReferenceForClient(clerkUserId: string, assessmentReference: string) {
+  const db = getDb();
+  const clientProfileId = await getOwnedProfileId(db, clerkUserId);
+  const assessment = (await db.select({ id: eligibilityAssessments.id }).from(eligibilityAssessments).where(and(eq(eligibilityAssessments.clientProfileId, clientProfileId), eq(eligibilityAssessments.assessmentReference, assessmentReference))).limit(1))[0];
+  if (!assessment) return undefined;
+  return (await db.select(clientClaimColumns).from(claims).where(and(eq(claims.clientProfileId, clientProfileId), eq(claims.eligibilityAssessmentId, assessment.id))).limit(1))[0];
 }
 
 export async function createClaimFromAssessment(clerkUserId: string, eligibilityAssessmentId: string) {
@@ -98,6 +107,14 @@ export async function createClaimFromAssessment(clerkUserId: string, eligibility
   }
 
   throw new Error("Claim reference could not be generated.");
+}
+
+export async function createClaimFromAssessmentReference(clerkUserId: string, assessmentReference: string) {
+  const db = getDb();
+  const clientProfileId = await getOwnedProfileId(db, clerkUserId);
+  const assessment = (await db.select({ id: eligibilityAssessments.id }).from(eligibilityAssessments).where(and(eq(eligibilityAssessments.clientProfileId, clientProfileId), eq(eligibilityAssessments.assessmentReference, assessmentReference))).limit(1))[0];
+  if (!assessment) throw new ClaimDomainError("ASSESSMENT_NOT_FOUND");
+  return createClaimFromAssessment(clerkUserId, assessment.id);
 }
 
 export async function getClaimsForClient(clerkUserId: string) {
