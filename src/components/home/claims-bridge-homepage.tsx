@@ -65,7 +65,7 @@ function HeroCaseObject() {
 
 function PortalPreview() {
   return (
-    <GlassSurface as="figure" className={styles.portalWindow} strength="strong">
+    <GlassSurface as="figure" className={`${styles.portalWindow} glass-floating`} strength="strong">
       <div className={styles.portalChrome}>
         <div>
           <span className={styles.demoFlag}>Example interface</span>
@@ -233,7 +233,7 @@ export function ClaimsBridgeHomepage() {
             <p>You do not need to understand the law or have every document before beginning an initial check.</p>
             <span className={styles.sectionMarker}>Check · Evidence · Assessment</span>
           </div>
-          <GlassSurface className={styles.eligibilityGlass} strength="strong">
+          <GlassSurface className={`${styles.eligibilityGlass} glass-interactive`} strength="strong">
             <EligibilityPreview />
           </GlassSurface>
         </ApplicationContainer>
@@ -435,7 +435,7 @@ export function ClaimsBridgeHomepage() {
 
       <section className={styles.finalSection} aria-labelledby="final-title">
         <ApplicationContainer>
-          <GlassSurface className={styles.finalGlass} strength="strong">
+          <GlassSurface className={`${styles.finalGlass} glass-illuminated`} strength="strong">
             <div className={styles.finalPath} aria-hidden="true"><span /><span /><span /></div>
             <div className={styles.finalCopy}>
               <p className="eyebrow">Your first step</p>

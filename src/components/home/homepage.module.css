@@ -577,6 +577,40 @@
   color: var(--color-text-muted);
 }
 
+.questionSequence li {
+  isolation: isolate;
+  transition: background var(--duration-standard) ease, padding var(--duration-standard) var(--ease-out);
+}
+
+.questionSequence li::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1.5rem;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgb(77 216 232 / 32%), transparent);
+  content: "";
+  opacity: .6;
+}
+
+.questionSequence li > span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgb(168 221 255 / 26%);
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: 0 0 0 .35rem rgb(5 12 24 / 92%);
+}
+
+.questionSequence li:nth-child(2) { padding-left: clamp(1rem, 3vw, 2rem); }
+.questionSequence li:nth-child(3) { padding-left: clamp(2rem, 6vw, 4rem); }
+.questionSequence li:hover { background: linear-gradient(90deg, rgb(61 124 255 / 7%), transparent 72%); }
+.questionSequence li:hover > span { border-color: var(--color-accent-cyan); box-shadow: 0 0 0 .35rem rgb(5 12 24 / 92%), 0 0 1.2rem rgb(77 216 232 / 28%); }
+
 .eligibilitySection {
   position: relative;
   padding: var(--space-section) 0;
@@ -880,6 +914,10 @@
 
 .issueArrow svg { width: 1rem; }
 .issueIndex a:hover .issueArrow { background: rgb(61 124 255 / 15%); transform: translateX(0.2rem); }
+
+.issueIndex li:nth-child(2) a { background-image: linear-gradient(90deg, transparent, rgb(255 199 102 / 3%)); }
+.issueIndex li:nth-child(3) a { background-image: linear-gradient(90deg, transparent, rgb(168 221 255 / 3%)); }
+.issueIndex li:nth-child(4) a { background-image: linear-gradient(90deg, transparent, rgb(77 216 232 / 4%)); }
 
 .processSection {
   position: relative;

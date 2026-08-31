@@ -18,9 +18,11 @@ function routeIsActive(pathname: string, href: string) {
 export function PublicHeader() {
   const pathname = usePathname();
   const [activePanel, setActivePanel] = useState<string | null>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const megaMenuRef = useRef<HTMLDivElement>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const selectedSection = publicNavigation.find(
@@ -36,6 +38,16 @@ export function PublicHeader() {
 
     document.addEventListener("pointerdown", closeOnOutsidePointer);
     return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, []);
+
+  useEffect(() => {
+    function updateScrollState() {
+      setIsScrolled(window.scrollY > 24);
+    }
+
+    updateScrollState();
+    window.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrollState);
   }, []);
 
   function openMobileNavigation() {
@@ -55,7 +67,7 @@ export function PublicHeader() {
         triggerRefs.current[label]?.focus();
       }
     }}>
-      <div className="application-container public-header__bar glass-surface glass-surface--strong">
+      <div className={cn("application-container public-header__bar glass-surface glass-surface--strong", isScrolled && "public-header__bar--scrolled")}>
         <div className="glass-surface__content public-header__bar-content">
           <BrandMark />
 
@@ -114,6 +126,7 @@ export function PublicHeader() {
             </Link>
             <button
               className="mobile-navigation__trigger"
+              ref={mobileTriggerRef}
               type="button"
               aria-label="Open navigation"
               onClick={openMobileNavigation}
@@ -165,6 +178,7 @@ export function PublicHeader() {
         className="mobile-navigation"
         ref={dialogRef}
         aria-labelledby="mobile-navigation-title"
+        onClose={() => mobileTriggerRef.current?.focus()}
         onClick={(event) => {
           if (event.target === dialogRef.current) closeMobileNavigation();
         }}
