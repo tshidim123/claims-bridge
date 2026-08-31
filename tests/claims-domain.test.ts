@@ -31,6 +31,9 @@ import { clientActionConfig, clientActionStatuses, clientActionTypes } from "../
 import { CLIENT_ACTION_REFERENCE_PATTERN, createClientActionReference } from "../src/lib/actions/keys";
 import { CLIENT_REFERENCE_PATTERN, createClientReference } from "../src/lib/clients/reference";
 import { ASSESSMENT_REFERENCE_PATTERN, createAssessmentReference } from "../src/lib/eligibility/persistence/reference";
+import { createLeadReference, LEAD_REFERENCE_PATTERN } from "../src/lib/leads/reference";
+import { leadCaptureSchema } from "../src/lib/leads/validation";
+import { canChangeLeadStatus, isSystemDerivedLeadStatus } from "../src/lib/leads/status";
 
 test("claim references use the documented secure format", () => {
   const reference = generateClaimReference(new Date("2026-08-28T00:00:00.000Z"));
@@ -823,3 +826,12 @@ test("Phase 11C exposes durable cross-client leads and assessments only through 
   assert.doesNotMatch(leads, /clerkUserId|assessment\.answers|tokenHash/);
   assert.doesNotMatch(assessments, /clerkUserId|assessment\.answers|tokenHash/);
 });
+
+const leadInput = { firstName: "A", email: "RENTER@example.com", preferredContactMethod: "email", serviceContactConsent: "yes", associationKey: "123456789012345678901234", assessment: { version: 1, status: "complete", currentStepId: "review", answers: {}, startedAt: null } };
+test("lead references are opaque and formatted safely", () => { const refs = new Set(Array.from({ length: 100 }, createLeadReference)); assert.equal(refs.size, 100); for (const ref of refs) assert.match(ref, LEAD_REFERENCE_PATTERN); });
+test("lead capture requires service consent and defaults marketing to false", () => { const parsed = leadCaptureSchema.parse(leadInput); assert.equal(parsed.email, "renter@example.com"); assert.equal(parsed.marketingConsent, false); assert.throws(() => leadCaptureSchema.parse({ ...leadInput, serviceContactConsent: undefined })); });
+test("lead capture rejects malformed contact details and honeypots", () => { assert.throws(() => leadCaptureSchema.parse({ ...leadInput, email: "bad" })); assert.throws(() => leadCaptureSchema.parse({ ...leadInput, honeypot: "filled" })); });
+test("lead status graph keeps conversion system-derived", () => { assert.equal(canChangeLeadStatus("NEW", "CONTACTED"), true); assert.equal(canChangeLeadStatus("NEW", "CONVERTED"), false); assert.equal(canChangeLeadStatus("CONVERTED", "CLOSED"), false); assert.equal(isSystemDerivedLeadStatus("CONVERTED"), true); });
+test("lead implementation preserves ownership and claim boundaries", () => { const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); assert.match(service, /db\.transaction/); assert.match(service, /convertedClientProfileId/); assert.match(service, /convertedAssessmentId/); assert.doesNotMatch(service, /insert\(claims\)/); });
+test("lead audit metadata remains sanitized and staff-only", () => { const audit = fs.readFileSync(path.resolve("src/lib/staff/audit.ts"), "utf8"); const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); assert.match(audit, /leadStatus/); assert.match(service, /LEADS_MANAGE/); assert.match(service, /LEAD_NOTE_ADDED/); assert.doesNotMatch(service, /metadata:.*body/); });
+test("lead migration is additive and follows migration 0016", () => { const migration = fs.readFileSync(path.resolve("drizzle/0017_tranquil_norrin_radd.sql"), "utf8"); assert.match(migration, /CREATE TABLE "eligibility_leads"/); assert.match(migration, /eligibility_lead_conversion_tokens/); assert.match(migration, /eligibility_lead_notes/); assert.equal(fs.existsSync(path.resolve("drizzle/0016_orange_mesmero.sql")), true); });

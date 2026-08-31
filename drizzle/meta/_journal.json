@@ -120,6 +120,13 @@
       "when": 1788172964107,
       "tag": "0016_orange_mesmero",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788196773468,
+      "tag": "0017_tranquil_norrin_radd",
+      "breakpoints": true
     }
   ]
 }

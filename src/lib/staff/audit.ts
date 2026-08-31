@@ -10,7 +10,7 @@ type DbClient = ReturnType<typeof getDb>;
 type DbTransaction = Parameters<DbClient["transaction"]>[0] extends (tx: infer T, ...args: never[]) => unknown ? T : never;
 export type StaffDbExecutor = DbClient | DbTransaction;
 
-const allowedMetadataKeys = new Set(["previousRole", "newRole", "previousPriority", "newPriority", "previousStaffReference", "newStaffReference", "reasonCode", "previousStatus", "newStatus", "fromStatus", "toStatus", "fromEvidenceStatus", "toEvidenceStatus", "fromDocumentStatus", "toDocumentStatus", "evidenceType", "required", "priority", "dueDate", "requirementReference", "documentReference", "messageType", "senderType", "actionType", "actionReference", "changedFields"]);
+const allowedMetadataKeys = new Set(["previousRole", "newRole", "previousPriority", "newPriority", "previousStaffReference", "newStaffReference", "reasonCode", "previousStatus", "newStatus", "fromStatus", "toStatus", "fromEvidenceStatus", "toEvidenceStatus", "fromDocumentStatus", "toDocumentStatus", "evidenceType", "required", "priority", "dueDate", "requirementReference", "documentReference", "messageType", "senderType", "actionType", "actionReference", "changedFields", "leadStatus", "fromLeadStatus", "toLeadStatus", "conversionState"]);
 
 export function sanitizeAuditMetadata(value: unknown): Record<string, string | number | boolean | string[]> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
