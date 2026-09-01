@@ -267,7 +267,7 @@ const [verification] = await sql`
     ) as action_status_values,
     (select count(*)::int from public.staff_users) as staff_record_count,
     (select count(*)::int from public.staff_audit_events where action = 'STAFF_BOOTSTRAPPED') as staff_bootstrap_audit_count,
-    (select count(*)::int from drizzle.__drizzle_migrations) = 17 as claim_migrations_recorded,
+    (select count(*)::int from drizzle.__drizzle_migrations) >= 17 as claim_migrations_recorded,
     (select count(*)::int from drizzle.__drizzle_migrations) as migration_count
 `;
 

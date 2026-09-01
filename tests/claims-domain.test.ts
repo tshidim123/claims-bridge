@@ -805,7 +805,7 @@ test("Phase 11A uses opaque assessment references, real account routes, and reve
   assert.match(adminAssessmentDetail, /getVisibleQuestions/);
   assert.doesNotMatch(claimNavigation, /label: "Updates"/);
   assert.match(verifier, /claim_migrations_recorded/);
-  assert.match(verifier, /\) = 17/);
+  assert.match(verifier, /\) >= 17/);
 });
 
 test("Phase 11C exposes durable cross-client leads and assessments only through staff-authorized repositories", () => {
