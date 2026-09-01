@@ -969,6 +969,117 @@
   transition: border-color .2s ease, background .2s ease;
 }
 
+/* Phase 12D: result and review are decision surfaces, rather than form summaries. */
+.reviewHeader,
+.outcomeHero { padding: clamp(2rem, 5vw, 4.5rem) clamp(1.35rem, 5vw, 4.75rem); }
+.reviewHeader { max-width: 58rem; }
+.reviewHeader h2 { max-width: 16ch; }
+.reviewProgress { display: flex; align-items: center; gap: .8rem; margin: 0 clamp(1.35rem, 5vw, 4.75rem); padding: 1rem 0; border-top: 1px solid var(--color-line); border-bottom: 1px solid var(--color-line); color: var(--color-text-quiet); font-family: var(--font-mono); font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; }
+.reviewProgress i { width: 2.5rem; height: 1px; background: linear-gradient(90deg, var(--color-accent-cyan), transparent); }
+.reviewProgress strong { color: var(--color-accent-ice); font: inherit; }
+.reviewSections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; padding: 1.25rem clamp(1.35rem, 5vw, 4.75rem); border: 0; }
+.reviewSection { min-width: 0; padding: 1.25rem 1.3rem; border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: linear-gradient(145deg, rgb(255 255 255 / 4%), rgb(6 17 31 / 42%)); }
+.reviewSection > header { grid-template-columns: 2rem minmax(0, 1fr); gap: .7rem; padding: 0 0 1rem; border-bottom: 1px solid var(--color-line); }
+.reviewSection > header span { display: grid; width: 1.7rem; height: 1.7rem; place-items: center; border: 1px solid rgb(77 216 232 / 26%); border-radius: 50%; font-size: .57rem; }
+.reviewSection > header .eyebrow { margin: 0; font-size: .56rem; }
+.reviewSection h3 { margin: .22rem 0 0; color: var(--color-text-muted); font-size: .73rem; font-weight: 450; line-height: 1.45; }
+.reviewRow { grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; min-height: 0; padding: 1rem 0; }
+.reviewRow:last-child { border-bottom: 0; padding-bottom: 0; }
+.reviewRow dt { color: var(--color-text-quiet); font-size: .64rem; line-height: 1.35; }
+.reviewRow dd { margin: .32rem 0 0; color: var(--color-text); font-size: .86rem; font-weight: 550; line-height: 1.4; overflow-wrap: anywhere; }
+.editAnswer { min-width: 2.75rem; min-height: 2.75rem; align-self: center; padding-inline: .55rem; color: var(--color-accent-ice); font-size: .67rem; }
+.editAnswer svg { width: .9rem; transition: transform var(--duration-quick) var(--ease-out); }
+.editAnswer:hover svg,
+.editAnswer:focus-visible svg { transform: translateX(.18rem); }
+.reviewActions { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; margin: 0; padding: 1.75rem clamp(1.35rem, 5vw, 4.75rem) clamp(2rem, 5vw, 3.5rem); border-top: 1px solid var(--color-line); }
+.reviewActions > div { max-width: 32rem; }
+.reviewActions p { margin: .35rem 0 0; color: var(--color-text-muted); font-size: .78rem; }
+
+.outcomeHero { display: grid; min-height: 0; grid-template-columns: minmax(0, 1.25fr) minmax(16rem, .75fr); gap: clamp(2rem, 6vw, 6rem); align-items: center; overflow: hidden; background: radial-gradient(circle at 83% 50%, rgb(77 216 232 / 11%), transparent 19rem); }
+.outcomeHero > :not(.outcomeSignal) { position: static; }
+.outcomeCopy { min-width: 0; max-width: 43rem; }
+.outcomeHero h2 { max-width: 15ch; }
+.legalQualifier { display: grid; grid-template-columns: 1.3rem minmax(0, 1fr); gap: .65rem; max-width: 50ch; margin: 1.45rem 0 0; padding-top: 1rem; border-top: 1px solid var(--color-line); color: var(--color-text-quiet); font-size: .69rem; line-height: 1.55; }
+.legalQualifier svg { width: 1rem; color: var(--color-accent-ice); }
+.outcomeStatus { position: relative; display: grid; gap: .6rem; min-width: 0; padding: 1.2rem; border: 1px solid rgb(151 221 255 / 26%); border-radius: var(--radius-xl); background: linear-gradient(145deg, rgb(26 61 99 / 48%), rgb(4 14 29 / 78%)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 9%), 0 1.5rem 4rem rgb(0 0 0 / 18%); }
+.outcomeStatus::before { position: absolute; top: 1rem; right: 1rem; width: 5rem; height: 5rem; border: 1px solid rgb(77 216 232 / 15%); border-radius: 50%; box-shadow: 0 0 0 1rem rgb(77 216 232 / 3%), 0 0 3rem rgb(77 216 232 / 12%); content: ""; }
+.outcomeStatus > div { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) .6rem; gap: .65rem; align-items: center; min-height: 3.6rem; padding: .75rem; border: 1px solid var(--color-line); border-radius: .75rem; background: rgb(4 16 31 / 42%); }
+.outcomeStatus > div span { color: var(--color-text-quiet); font-family: var(--font-mono); font-size: .58rem; }
+.outcomeStatus > div strong { font-size: .76rem; font-weight: 600; }
+.outcomeStatus > div i { width: .5rem; height: .5rem; border-radius: 50%; background: var(--color-accent-cyan); box-shadow: 0 0 0 .28rem rgb(77 216 232 / 9%), 0 0 14px rgb(77 216 232 / 52%); }
+.outcomeStatus ul { display: flex; flex-wrap: wrap; gap: .45rem; margin: .55rem 0 0; padding: 0; list-style: none; }
+.outcomeStatus li { padding: .38rem .5rem; border: 1px solid var(--color-line); border-radius: 999px; color: var(--color-text-quiet); font-family: var(--font-mono); font-size: .54rem; }
+.outcomeReasons,
+.nextSteps,
+.evidencePreview { padding: clamp(1.8rem, 4vw, 3rem) clamp(1.35rem, 5vw, 4.75rem); }
+.outcomeReasons { max-width: 62rem; border-bottom: 0; }
+.outcomeReasons h3,
+.nextSteps h3 { max-width: 20ch; margin: .65rem 0 0; font-size: clamp(1.45rem, 2.6vw, 2.35rem); font-weight: 470; letter-spacing: -.045em; line-height: 1.05; }
+.outcomeReasons > p:last-child { max-width: 64ch; margin: 1rem 0 0; color: var(--color-text-muted); font-size: .82rem; line-height: 1.65; }
+.evidencePreview { border-top: 1px solid var(--color-line); }
+.evidencePreview li { grid-template-columns: 2.1rem minmax(0, 1fr) auto; gap: 1rem; min-height: 0; padding: 1.05rem 0; }
+.evidencePreview li > span { display: grid; width: 1.65rem; height: 1.65rem; place-items: center; margin: .05rem 0 0; border-color: rgb(151 221 255 / 34%); color: var(--color-text-quiet); font-family: var(--font-mono); font-size: .52rem; }
+.evidencePreview li > span::after { position: absolute; width: 1px; height: 1.25rem; margin-top: 2.85rem; background: var(--color-line); content: ""; }
+.evidencePreview li:last-child > span::after { display: none; }
+.evidencePreview li > span.evidenceAvailable { color: #052018; }
+.evidencePreview li strong { font-size: .86rem; }
+.evidencePreview li p { max-width: 55ch; font-size: .74rem; }
+.evidencePreview li small { align-self: center; padding: .34rem .48rem; border: 1px solid var(--color-line); border-radius: 999px; font-size: .52rem; }
+.evidenceReassurance { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); gap: .8rem; max-width: 50rem; margin-top: 1.4rem; padding: 1rem 1.1rem; border: 1px solid rgb(77 216 232 / 22%); border-radius: var(--radius-md); background: linear-gradient(105deg, rgb(77 216 232 / 9%), transparent 70%); }
+.evidenceReassurance svg { width: 1.35rem; color: var(--color-accent-ice); }
+.evidenceReassurance strong { font-size: .76rem; }
+.evidenceReassurance p { margin: .3rem 0 0; color: var(--color-text-muted); font-size: .69rem; line-height: 1.5; }
+.nextSteps { max-width: 62rem; border-bottom: 0; }
+.nextSteps li { max-width: 48rem; padding: .85rem 0; }
+.outcomeActions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2rem; align-items: center; margin: 0 clamp(1.35rem, 5vw, 4.75rem); padding: clamp(1.5rem, 4vw, 2.5rem); border: 1px solid rgb(151 221 255 / 28%); border-radius: var(--radius-xl); background: linear-gradient(120deg, rgb(31 83 136 / 24%), rgb(5 18 34 / 76%)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 9%), 0 1.5rem 4rem rgb(0 0 0 / 14%); }
+.outcomeActions h3 { max-width: 28ch; margin: .55rem 0 0; font-size: clamp(1.25rem, 2.4vw, 1.9rem); font-weight: 480; letter-spacing: -.04em; line-height: 1.1; }
+.outcomeActions > div > p:last-child { max-width: 48ch; margin: .7rem 0 0; color: var(--color-text-muted); font-size: .74rem; line-height: 1.55; }
+.actionControls { display: grid; justify-items: start; gap: .45rem; }
+.actionControls :global(.button--large) { min-height: 3.4rem; box-shadow: 0 .8rem 2.2rem rgb(61 124 255 / 22%); }
+.actionControls :global(.button--large) svg { width: 1rem; transition: transform var(--duration-quick) var(--ease-out); }
+.actionControls :global(.button--large):hover svg { transform: translateX(.22rem); }
+.outcomePanel > .leadCapture,
+.outcomePanel > .saveResultLink { width: auto; margin: 1rem clamp(1.35rem, 5vw, 4.75rem) clamp(2rem, 5vw, 3.5rem); }
+.outcomePanel > .saveResultLink { grid-template-columns: minmax(0, 1fr) 1.4rem; max-width: 41rem; padding: .85rem 1rem; border-color: var(--color-line-strong); background: rgb(255 255 255 / 3%); }
+.outcomePanel > .saveResultLink strong { font-size: .78rem; }
+.outcomePanel > .saveResultLink small { font-size: .69rem; }
+.outcomePanel > .leadCapture { grid-template-columns: minmax(15rem, .8fr) minmax(0, 1.2fr); max-width: none; }
+
+@media (max-width: 899px) {
+  .reviewSections { grid-template-columns: 1fr; }
+  .outcomeHero { grid-template-columns: minmax(0, 1fr); }
+  .outcomeStatus { max-width: 34rem; }
+  .outcomeActions { grid-template-columns: minmax(0, 1fr); }
+  .actionControls { display: flex; flex-wrap: wrap; align-items: center; }
+}
+
+@media (max-width: 767px) {
+  .reviewProgress { margin-inline: 1.35rem; }
+  .reviewSections { gap: .75rem; padding: 1rem 1.35rem; }
+  .reviewSection { padding: 1rem; }
+  .reviewActions { align-items: stretch; flex-direction: column; padding-inline: 1.35rem; }
+  .reviewActions :global(.button) { width: 100%; }
+  .outcomeHero { gap: 1.5rem; padding-inline: 1.35rem; }
+  .outcomeStatus { padding: 1rem; }
+  .outcomeReasons, .nextSteps, .evidencePreview { padding-inline: 1.35rem; }
+  .evidencePreview li { grid-template-columns: 2rem minmax(0, 1fr); }
+  .evidencePreview li small { grid-column: 2; justify-self: start; }
+  .outcomeActions { margin-inline: 1.1rem; padding: 1.35rem; }
+  .actionControls { display: grid; }
+  .actionControls :global(.button) { width: 100%; justify-content: center; }
+  .outcomePanel > .leadCapture, .outcomePanel > .saveResultLink { margin-inline: 1.1rem; }
+  .outcomePanel > .leadCapture { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 430px) {
+  .reviewHeader, .outcomeHero { padding-inline: 1.1rem; }
+  .reviewProgress { margin-inline: 1.1rem; gap: .55rem; font-size: .54rem; }
+  .reviewProgress i { width: 1.1rem; }
+  .reviewSections { padding-inline: 1.1rem; }
+  .outcomeReasons, .nextSteps, .evidencePreview { padding-inline: 1.1rem; }
+  .evidenceReassurance { grid-template-columns: 1.8rem minmax(0, 1fr); padding: .9rem; }
+}
+
 .saveResultLink:hover,
 .saveResultLink:focus-visible { border-color: rgb(180 235 255 / 78%); background: linear-gradient(115deg, rgb(110 208 255 / 20%), rgb(255 255 255 / 7%)); }
 .saveResultLink > span { display: grid; min-width: 0; gap: .25rem; }

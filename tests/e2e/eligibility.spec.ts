@@ -61,3 +61,27 @@ test("confirming restart clears answers and returns to the first question", asyn
   await expect(page.getByRole("heading", { level: 2, name: "Where was the rented property?" })).toBeFocused();
   await expect(page.getByRole("radio", { name: "England" })).not.toBeChecked();
 });
+
+test("review and preliminary result retain a readable action hierarchy across responsive viewports", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  for (const viewport of [{ width: 390, height: 844 }, { width: 430, height: 932 }, { width: 768, height: 1024 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 }]) {
+    await page.setViewportSize(viewport);
+    await start(page);
+    await page.getByRole("radio", { name: "England" }).check(); await next(page);
+    await page.getByRole("radio", { name: "Yes" }).check(); await next(page);
+    await page.getByRole("radio", { name: "A letting agent" }).check(); await next(page); await next(page);
+    await page.getByRole("radio", { name: "No", exact: true }).check(); await next(page);
+    await expect(page.getByRole("heading", { name: /review the picture/i })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.getByRole("button", { name: /see preliminary route/i }).click();
+    await expect(page.getByRole("heading", { name: /assessment route may not apply/i })).toBeVisible();
+    await expect(page.getByText("Evidence that may help next")).toBeVisible();
+    await expect(page.getByRole("button", { name: /continue with claims bridge/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /save my result/i })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    if (viewport.width === 390 || viewport.width === 1440) await page.screenshot({ path: testInfo.outputPath(`phase-12d-${viewport.width}.png`), fullPage: true });
+    await page.getByRole("button", { name: /save my result/i }).click();
+    await expect(page.getByRole("heading", { name: /keep this result available/i })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
