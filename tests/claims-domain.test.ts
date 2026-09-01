@@ -34,6 +34,11 @@ import { ASSESSMENT_REFERENCE_PATTERN, createAssessmentReference } from "../src/
 import { createLeadReference, LEAD_REFERENCE_PATTERN } from "../src/lib/leads/reference";
 import { leadCaptureSchema } from "../src/lib/leads/validation";
 import { canChangeLeadStatus, isSystemDerivedLeadStatus } from "../src/lib/leads/status";
+import { getReviewQuestions, pruneHiddenAnswers } from "../src/lib/eligibility/flow";
+import { assessmentPayloadSchema } from "../src/lib/eligibility/persistence/validation";
+import { customLocationPattern, normalizeCustomLocation, validateQuestionAnswer } from "../src/lib/eligibility/validation";
+import { getQuestionById } from "../src/lib/eligibility/flow";
+import { normalisePhone, profileSchema, profileShareSchema } from "../src/lib/clients/validation";
 
 test("claim references use the documented secure format", () => {
   const reference = generateClaimReference(new Date("2026-08-28T00:00:00.000Z"));
@@ -835,3 +840,131 @@ test("lead status graph keeps conversion system-derived", () => { assert.equal(c
 test("lead implementation preserves ownership and claim boundaries", () => { const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); assert.match(service, /db\.transaction/); assert.match(service, /convertedClientProfileId/); assert.match(service, /convertedAssessmentId/); assert.doesNotMatch(service, /insert\(claims\)/); });
 test("lead audit metadata remains sanitized and staff-only", () => { const audit = fs.readFileSync(path.resolve("src/lib/staff/audit.ts"), "utf8"); const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); assert.match(audit, /leadStatus/); assert.match(service, /LEADS_MANAGE/); assert.match(service, /LEAD_NOTE_ADDED/); assert.doesNotMatch(service, /metadata:.*body/); });
 test("lead migration is additive and follows migration 0016", () => { const migration = fs.readFileSync(path.resolve("drizzle/0017_tranquil_norrin_radd.sql"), "utf8"); assert.match(migration, /CREATE TABLE "eligibility_leads"/); assert.match(migration, /eligibility_lead_conversion_tokens/); assert.match(migration, /eligibility_lead_notes/); assert.equal(fs.existsSync(path.resolve("drizzle/0016_orange_mesmero.sql")), true); });
+
+const validProfile = { firstName: "  Ada  ", lastName: "  Lovelace ", phone: "07700 900123", bio: "Tenant seeking clear written updates.", addressLine1: "  1 Example Road ", addressLine2: "", city: " Newcastle-under-Lyme ", region: " Staffordshire ", postcode: " ST5 1AA ", country: " United Kingdom ", preferredContactMethod: "email" as const, preferredContactTime: "afternoon" as const, preferredContactTimeNote: "" };
+
+test("custom location accepts canonical UK place names and preserves the predefined route", () => {
+  const jurisdiction = getQuestionById("jurisdiction");
+  const customLocation = getQuestionById("custom_location");
+  assert.ok(jurisdiction && customLocation);
+  assert.deepEqual(validateQuestionAnswer(jurisdiction, "england", { jurisdiction: "england" }), { valid: true });
+  assert.deepEqual(validateQuestionAnswer(customLocation, "Newcastle-under-Lyme", { jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" }), { valid: true });
+  for (const location of ["St. Ives", "King's Lynn", "Bishop's-Stortford", "New Town"]) assert.equal(customLocationPattern.test(location), true);
+});
+
+test("custom location validation and canonicalisation reject unsafe or out-of-range values", () => {
+  const customLocation = getQuestionById("custom_location");
+  assert.ok(customLocation);
+  assert.equal(normalizeCustomLocation("  Newcastle   under-Lyme  "), "Newcastle under-Lyme");
+  assert.equal(validateQuestionAnswer(customLocation, "A", { jurisdiction: "custom", custom_location: "A" }).valid, false);
+  assert.equal(validateQuestionAnswer(customLocation, "A".repeat(121), { jurisdiction: "custom", custom_location: "A".repeat(121) }).valid, false);
+  assert.equal(validateQuestionAnswer(customLocation, "Newcastle 1", { jurisdiction: "custom", custom_location: "Newcastle 1" }).valid, false);
+});
+
+test("custom location is required only for the other-location route and stale values are pruned", () => {
+  assert.equal(assessmentPayloadSchema.safeParse({ version: 1, status: "in-progress", currentStepId: "custom_location", answers: { jurisdiction: "custom" }, startedAt: null }).success, false);
+  assert.equal(assessmentPayloadSchema.safeParse({ version: 1, status: "in-progress", currentStepId: "custom_location", answers: { jurisdiction: "custom", custom_location: "  Newcastle-under-Lyme  " }, startedAt: null }).success, true);
+  assert.deepEqual(pruneHiddenAnswers({ jurisdiction: "england", custom_location: "Newcastle-under-Lyme" }), { jurisdiction: "england" });
+  assert.deepEqual(pruneHiddenAnswers({ jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" }), { jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" });
+});
+
+test("custom location is rendered as a professional review value and never as a profile address", () => {
+  const review = fs.readFileSync(path.resolve("src/components/eligibility/eligibility-review.tsx"), "utf8");
+  const assessment = fs.readFileSync(path.resolve("src/components/eligibility/eligibility-assessment.tsx"), "utf8");
+  const profileActions = fs.readFileSync(path.resolve("src/app/account/profile/actions.ts"), "utf8");
+  assert.match(review, /Custom — \$\{String\(answers\.custom_location/);
+  assert.match(assessment, /custom_location: normalizeCustomLocation/);
+  assert.doesNotMatch(profileActions, /custom_location|jurisdiction/);
+  assert.equal(getReviewQuestions({ jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" }, ["jurisdiction", "custom_location"]).some((question) => question.id === "custom_location"), true);
+});
+
+test("profile validation normalises presentation fields without treating contact details as verified identity", () => {
+  const parsed = profileSchema.parse(validProfile);
+  assert.equal(parsed.firstName, "Ada");
+  assert.equal(parsed.lastName, "Lovelace");
+  assert.equal(parsed.phone, "+447700900123");
+  assert.equal(parsed.city, "Newcastle-under-Lyme");
+  assert.equal(normalisePhone("0044 7700 900123"), "+447700900123");
+  const form = fs.readFileSync(path.resolve("src/components/account/client-profile-form.tsx"), "utf8");
+  assert.match(form, /Verified account email/);
+  assert.match(form, /managed and verified by Clerk/);
+  assert.match(form, /Not verified/);
+});
+
+test("profile validation bounds bio, address and contact preference values", () => {
+  assert.equal(profileSchema.safeParse({ ...validProfile, bio: "" }).success, true);
+  assert.equal(profileSchema.safeParse({ ...validProfile, bio: "<strong>Unsafe</strong>" }).success, false);
+  assert.equal(profileSchema.safeParse({ ...validProfile, bio: "a".repeat(501) }).success, false);
+  assert.equal(profileSchema.safeParse({ ...validProfile, phone: "123", preferredContactMethod: "phone" }).success, false);
+  assert.equal(profileSchema.safeParse({ ...validProfile, preferredContactMethod: "carrier-pigeon" }).success, false);
+  assert.equal(profileSchema.safeParse({ ...validProfile, preferredContactTime: "custom", preferredContactTimeNote: "  Weekdays after 17:00  " }).data?.preferredContactTimeNote, "Weekdays after 17:00");
+  assert.equal(profileSchema.safeParse({ ...validProfile, preferredContactTime: "custom", preferredContactTimeNote: "" }).success, false);
+});
+
+test("profile ownership and lead conversion preserve the authenticated profile boundary", () => {
+  const repository = fs.readFileSync(path.resolve("src/lib/clients/repository.ts"), "utf8");
+  const actions = fs.readFileSync(path.resolve("src/app/account/profile/actions.ts"), "utf8");
+  const onboarding = fs.readFileSync(path.resolve("src/app/account/onboarding/actions.ts"), "utf8");
+  const leadService = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8");
+  assert.match(actions, /auth\(\)/);
+  assert.match(actions, /updateClientProfileForClient\(userId/);
+  assert.doesNotMatch(actions, /client_profile_id|clientProfileId/);
+  assert.match(repository, /where\(eq\(clientProfiles\.id, profile\.id\)\)/);
+  assert.match(repository, /bio: existing\.bio/);
+  assert.match(repository, /addressLine1: existing\.addressLine1/);
+  assert.match(onboarding, /upsertClientProfile\(userId/);
+  assert.match(leadService, /where\(eq\(clientProfiles\.clerkUserId, clerkUserId\)\)/);
+  assert.doesNotMatch(leadService, /update\(clientProfiles\)/);
+  assert.doesNotMatch(leadService, /insert\(claims\)/);
+});
+
+test("profile sharing rejects unknown fields and keeps avatars and street addresses private", () => {
+  assert.equal(profileShareSchema.safeParse({ selectedFields: ["first_name", "bio"], duration: "24h" }).success, true);
+  assert.equal(profileShareSchema.safeParse({ selectedFields: ["avatar"], duration: "24h" }).success, false);
+  assert.equal(profileShareSchema.safeParse({ selectedFields: ["addressLine1"], duration: "24h" }).success, false);
+  assert.equal(profileShareSchema.safeParse({ selectedFields: ["first_name"], duration: "forever" }).success, false);
+  const form = fs.readFileSync(path.resolve("src/components/account/client-profile-form.tsx"), "utf8");
+  assert.match(form, /Your profile image, address, claims and assessments are never included/);
+  assert.doesNotMatch(form, /\["avatar", "Profile photo"\]/);
+});
+
+test("profile share service uses opaque 256-bit tokens, hash-only lookup, expiry and owner-scoped revocation", () => {
+  const shares = fs.readFileSync(path.resolve("src/lib/clients/shares.ts"), "utf8");
+  assert.match(shares, /crypto\.randomBytes\(32\)\.toString\("base64url"\)/);
+  assert.match(shares, /createHash\("sha256"\)/);
+  assert.match(shares, /tokenHash: tokenHash\(token\)/);
+  assert.match(shares, /"1h": 60 \* 60_000/);
+  assert.match(shares, /"24h": 24 \* 60 \* 60_000/);
+  assert.match(shares, /"7d": 7 \* 24 \* 60 \* 60_000/);
+  assert.match(shares, /gt\(clientProfileShares\.expiresAt, new Date\(\)\)/);
+  assert.match(shares, /isNull\(clientProfileShares\.revokedAt\)/);
+  assert.match(shares, /eq\(clientProfileShares\.clientProfileId, profile\.id\)/);
+  assert.doesNotMatch(shares, /token: clientProfileShares/);
+  assert.doesNotMatch(shares, /clerkUserId.*return/);
+});
+
+test("profile completion has four deterministic sections and does not require optional bio or avatar", () => {
+  const repository = fs.readFileSync(path.resolve("src/lib/clients/repository.ts"), "utf8");
+  assert.match(repository, /total: 4/);
+  assert.match(repository, /Boolean\(profile\.firstName && profile\.lastName\)/);
+  assert.match(repository, /Boolean\(profile\.phone\)/);
+  assert.match(repository, /Boolean\(profile\.city \|\| profile\.addressLine1\)/);
+  assert.doesNotMatch(repository, /profile\.bio|profile\.image/);
+});
+
+test("public profile shares have a strict allow-list and noindex boundary", () => {
+  const page = fs.readFileSync(path.resolve("src/app/profile/share/[token]/page.tsx"), "utf8");
+  const sitemap = fs.readFileSync(path.resolve("src/app/sitemap.ts"), "utf8");
+  assert.match(page, /robots: \{ index: false, follow: false \}/);
+  for (const field of ["first_name", "last_name", "bio", "phone", "city_region"]) assert.match(page, new RegExp(`fields\\.has\\("${field}"\\)`));
+  assert.doesNotMatch(page, /addressLine|postcode|claim|assessment|clerkUserId|clientProfileId/);
+  assert.doesNotMatch(sitemap, /profile\/share/);
+});
+
+test("share actions derive owner authority from Clerk and do not expose token hashes", () => {
+  const actions = fs.readFileSync(path.resolve("src/app/account/profile/share-actions.ts"), "utf8");
+  assert.match(actions, /const \{ userId \} = await auth\(\)/);
+  assert.match(actions, /createProfileShare\(userId/);
+  assert.match(actions, /revokeProfileShare\(userId, shareReference\)/);
+  assert.doesNotMatch(actions, /tokenHash|clientProfileId|clerkUserId/);
+});

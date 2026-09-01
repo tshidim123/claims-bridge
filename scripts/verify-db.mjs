@@ -12,6 +12,12 @@ const sql = neon(process.env.DATABASE_URL);
 const [verification] = await sql`
   select
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'client_profiles') as client_profiles,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'client_profiles' and column_name = 'bio') as client_profile_bio,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'client_profiles' and column_name = 'preferred_contact_time') as client_profile_contact_time,
+    exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'client_profile_shares') as client_profile_shares,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'client_profile_shares' and column_name = 'token_hash') as profile_share_token_hash,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'client_profile_shares' and column_name = 'expires_at') as profile_share_expires_at,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'client_profile_shares' and column_name = 'revoked_at') as profile_share_revoked_at,
     exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'client_profiles' and column_name = 'client_reference') as client_reference,
     exists (
       select 1 from information_schema.table_constraints tc

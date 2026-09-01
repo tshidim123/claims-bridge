@@ -6,7 +6,7 @@ const optionalText = (maximum: number, label: string) => compact(maximum, label)
 
 export const contactMethods = ["email", "phone", "whatsapp", "no_preference"] as const;
 export const contactTimes = ["morning", "afternoon", "evening", "anytime", "custom"] as const;
-export const profileShareFields = ["avatar", "first_name", "last_name", "bio", "phone", "city_region"] as const;
+export const profileShareFields = ["first_name", "last_name", "bio", "phone", "city_region"] as const;
 
 export function normalisePhone(value: string) {
   const compactValue = value.trim().replace(/[\s().-]/g, "");
