@@ -1080,6 +1080,26 @@
   .evidenceReassurance { grid-template-columns: 1.8rem minmax(0, 1fr); padding: .9rem; }
 }
 
+.contactCapture { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: clamp(1.5rem, 5vw, 4rem); padding: clamp(1.5rem, 5vw, 4.5rem) clamp(1.35rem, 5vw, 4.75rem); }
+.contactCaptureIntro { max-width: 32rem; }
+.contactCaptureIntro h2 { max-width: 12ch; margin: .7rem 0 1rem; font-size: clamp(2rem, 4vw, 3.7rem); letter-spacing: -.06em; line-height: .98; }
+.contactCaptureIntro > p:not(.contactPrivacy) { color: var(--color-text-muted); line-height: 1.6; }
+.contactPrivacy { display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: .65rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--color-line); color: var(--color-text-quiet); font-size: .7rem; line-height: 1.5; }
+.contactPrivacy svg { width: 1rem; color: var(--color-accent-ice); }
+.contactCaptureForm { display: grid; gap: 1rem; align-content: start; max-width: 38rem; }
+.contactCaptureForm > label:not(.consentLabel) { display: grid; gap: .35rem; color: var(--color-text-muted); font-size: .78rem; }
+.contactCaptureForm input:not([type="checkbox"]) { width: 100%; min-height: 3rem; padding: .7rem .8rem; border: 1px solid var(--color-line-strong); border-radius: .65rem; background: rgb(255 255 255 / 5%); color: inherit; }
+.contactCaptureActions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: .25rem; }
+.contactCaptureActions :global(.button--large) { min-height: 3.4rem; }
+.signInPrompt { margin: 0; color: var(--color-text-quiet); font-size: .72rem; }
+.signInPrompt a { color: var(--color-accent-ice); text-decoration: underline; text-underline-offset: .2em; }
+.savedAssessmentNotice { display: flex; align-items: center; gap: .75rem; margin: 1.25rem clamp(1.35rem, 5vw, 4.75rem) 0; padding: .9rem 1rem; border: 1px solid rgb(69 213 161 / 28%); border-radius: var(--radius-md); background: rgb(23 66 59 / 21%); }
+.savedAssessmentNotice svg { width: 1.2rem; color: var(--color-success); }
+.savedAssessmentNotice span { display: grid; gap: .2rem; }
+.savedAssessmentNotice strong { font-size: .78rem; }
+.savedAssessmentNotice small { color: var(--color-text-muted); font-family: var(--font-mono); font-size: .62rem; }
+@media (max-width: 767px) { .contactCapture { grid-template-columns: 1fr; padding-inline: 1.1rem; } .contactCaptureIntro h2 { max-width: 15ch; } .contactCaptureActions { display: grid; } .contactCaptureActions :global(.button) { width: 100%; } .savedAssessmentNotice { margin-inline: 1.1rem; } }
+
 .saveResultLink:hover,
 .saveResultLink:focus-visible { border-color: rgb(180 235 255 / 78%); background: linear-gradient(115deg, rgb(110 208 255 / 20%), rgb(255 255 255 / 7%)); }
 .saveResultLink > span { display: grid; min-width: 0; gap: .25rem; }

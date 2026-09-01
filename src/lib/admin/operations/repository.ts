@@ -14,7 +14,7 @@ import { claimAssignments } from "@/lib/db/schema/operations";
 import { claimConversations, claimMessageReads, claimMessages } from "@/lib/db/schema/messaging";
 import { claimDocuments, claimEvidenceRequirements } from "@/lib/db/schema/evidence";
 import { eligibilityAssessments } from "@/lib/db/schema/eligibility";
-import { eligibilityLeads } from "@/lib/db/schema/leads";
+import { eligibilityLeads, preAccountEligibilityAssessments } from "@/lib/db/schema/leads";
 import { staffUsers } from "@/lib/db/schema/staff";
 import { getDb } from "@/lib/db";
 import { getStaffRecordByClerkId, requirePermission, requireStaff } from "@/lib/staff/authorization";
@@ -177,6 +177,12 @@ export async function getAdminAssessmentQueue(clerkUserId: string, input: Assess
   return { items: rows.map((row) => ({ assessmentReference: row.assessmentReference, clientReference: row.clientReference, clientName: `${row.firstName} ${row.lastName}`.trim(), status: row.status, outcome: row.outcome, completedAt: iso(row.completedAt), updatedAt: row.updatedAt.toISOString(), claimReference: row.claimReference, claimStatus: row.claimStatus, nextState: row.claimReference ? "Claim started" : row.status === "COMPLETE" ? "Claim not started" : row.status === "REVIEW" ? "More information or individual review" : "Assessment still in progress" })), page, pageSize: PAGE_SIZE, total: totalCount, hasPreviousPage: page > 1, hasNextPage: page * PAGE_SIZE < totalCount };
 }
 
+export type AdminPreAccountAssessmentItem = { assessmentReference: string; leadReference: string; email: string; phone: string | null; outcome: string; status: string; createdAt: string; converted: boolean };
+export async function getAdminPreAccountAssessmentQueue(clerkUserId: string, input: PageInput = {}): Promise<QueuePage<AdminPreAccountAssessmentItem>> {
+  await requirePermission(clerkUserId, "CLIENTS_VIEW"); const db = getDb(); const page = pageNumber(input.page); const search = searchValue(input.search); const where = search ? or(ilike(preAccountEligibilityAssessments.assessmentReference, like(search)), ilike(eligibilityLeads.leadReference, like(search)), ilike(eligibilityLeads.email, like(search))) : undefined;
+  const [rows, total] = await Promise.all([db.select({ assessmentReference: preAccountEligibilityAssessments.assessmentReference, leadReference: eligibilityLeads.leadReference, email: eligibilityLeads.email, phone: eligibilityLeads.phone, outcome: preAccountEligibilityAssessments.preliminaryOutcome, status: preAccountEligibilityAssessments.status, createdAt: preAccountEligibilityAssessments.createdAt, converted: preAccountEligibilityAssessments.convertedAt }).from(preAccountEligibilityAssessments).innerJoin(eligibilityLeads, eq(eligibilityLeads.id, preAccountEligibilityAssessments.leadId)).where(where).orderBy(desc(preAccountEligibilityAssessments.createdAt)).limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE), db.select({ count: count() }).from(preAccountEligibilityAssessments).innerJoin(eligibilityLeads, eq(eligibilityLeads.id, preAccountEligibilityAssessments.leadId)).where(where)]); const totalCount = Number(total[0]?.count ?? 0); return { items: rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString(), converted: Boolean(row.converted) })), page, pageSize: PAGE_SIZE, total: totalCount, hasPreviousPage: page > 1, hasNextPage: page * PAGE_SIZE < totalCount };
+}
+
 export type AdminLeadQueueItem = { clientReference: string; clientName: string; phone: string | null; latestAssessment: AdminAssessmentQueueItem | null; claimCount: number; latestClaimReference: string | null; nextState: string; createdAt: string };
 
 export async function getAdminLeadQueue(clerkUserId: string, input: LeadQueueInput = {}): Promise<QueuePage<AdminLeadQueueItem>> {
@@ -225,6 +231,11 @@ export async function getAssessmentForAdmin(clerkUserId: string, assessmentRefer
   await requirePermission(clerkUserId, "CLIENTS_VIEW");
   const db = getDb();
   return (await db.select({ assessment: eligibilityAssessments, claimReference: claims.claimReference, clientReference: clientProfiles.clientReference, clientName: sql<string>`${clientProfiles.firstName} || ' ' || ${clientProfiles.lastName}` }).from(eligibilityAssessments).innerJoin(clientProfiles, eq(clientProfiles.id, eligibilityAssessments.clientProfileId)).leftJoin(claims, eq(claims.eligibilityAssessmentId, eligibilityAssessments.id)).where(eq(eligibilityAssessments.assessmentReference, assessmentReference)).limit(1))[0];
+}
+
+export async function getPreAccountAssessmentForAdmin(clerkUserId: string, assessmentReference: string) {
+  await requirePermission(clerkUserId, "CLIENTS_VIEW"); const db = getDb();
+  return (await db.select({ assessment: preAccountEligibilityAssessments, leadReference: eligibilityLeads.leadReference, email: eligibilityLeads.email, phone: eligibilityLeads.phone, serviceConsentAt: eligibilityLeads.serviceContactConsentAt, marketingConsent: eligibilityLeads.marketingConsent }).from(preAccountEligibilityAssessments).innerJoin(eligibilityLeads, eq(eligibilityLeads.id, preAccountEligibilityAssessments.leadId)).where(eq(preAccountEligibilityAssessments.assessmentReference, assessmentReference)).limit(1))[0];
 }
 
 export async function searchAdminEntities(clerkUserId: string, value: string) {

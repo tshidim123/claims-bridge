@@ -74,14 +74,13 @@ test("review and preliminary result retain a readable action hierarchy across re
     await expect(page.getByRole("heading", { name: /review the picture/i })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.getByRole("button", { name: /see preliminary route/i }).click();
-    await expect(page.getByRole("heading", { name: /assessment route may not apply/i })).toBeVisible();
-    await expect(page.getByText("Evidence that may help next")).toBeVisible();
-    await expect(page.getByRole("button", { name: /continue with claims bridge/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /save my result/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /save your eligibility assessment/i })).toBeVisible();
+    await expect(page.getByLabel("Email address")).toBeVisible();
+    await expect(page.getByLabel("Phone number")).toBeVisible();
+    await expect(page.getByLabel(/may contact me about this enquiry/i)).toBeVisible();
+    await expect(page.getByLabel(/marketing/i)).not.toBeChecked();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    if (viewport.width === 390 || viewport.width === 1440) await page.screenshot({ path: testInfo.outputPath(`phase-12d-${viewport.width}.png`), fullPage: true });
-    await page.getByRole("button", { name: /save my result/i }).click();
-    await expect(page.getByRole("heading", { name: /keep this result available/i })).toBeVisible();
+    if (viewport.width === 390 || viewport.width === 1440) await page.screenshot({ path: testInfo.outputPath(`phase-12e-contact-${viewport.width}.png`), fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });

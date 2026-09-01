@@ -43,6 +43,22 @@ export const eligibilityLeadConversionTokens = pgTable("eligibility_lead_convers
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("eligibility_lead_tokens_lead_idx").on(table.leadId), index("eligibility_lead_tokens_expiry_idx").on(table.expiresAt)]);
 
+export const preAccountEligibilityAssessments = pgTable("pre_account_eligibility_assessments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  assessmentReference: text("assessment_reference").notNull().unique(),
+  leadId: uuid("lead_id").notNull().unique().references(() => eligibilityLeads.id, { onDelete: "cascade" }),
+  assessmentVersion: text("assessment_version").notNull(),
+  status: text("status").notNull().default("COMPLETE"),
+  answers: jsonb("answers").notNull(),
+  preliminaryOutcome: text("preliminary_outcome").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  convertedAt: timestamp("converted_at", { withTimezone: true }),
+  convertedClientProfileId: uuid("converted_client_profile_id").references(() => clientProfiles.id, { onDelete: "set null" }),
+  convertedAssessmentId: uuid("converted_assessment_id").references(() => eligibilityAssessments.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("pre_account_assessments_created_idx").on(table.createdAt), index("pre_account_assessments_conversion_idx").on(table.convertedClientProfileId)]);
+
 export const eligibilityLeadNotes = pgTable("eligibility_lead_notes", {
   id: uuid("id").defaultRandom().primaryKey(),
   leadId: uuid("lead_id").notNull().references(() => eligibilityLeads.id, { onDelete: "cascade" }),

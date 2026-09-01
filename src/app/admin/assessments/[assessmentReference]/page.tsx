@@ -6,7 +6,7 @@ import { AdminAccessDenied } from "@/components/admin/admin-access-denied";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { GlassSurface } from "@/components/glass/glass-surface";
 import { eligibilityQuestions } from "@/content/eligibility/questions";
-import { getAssessmentForAdmin } from "@/lib/admin/operations/repository";
+import { getAssessmentForAdmin, getPreAccountAssessmentForAdmin } from "@/lib/admin/operations/repository";
 import { getVisibleQuestions } from "@/lib/eligibility/flow";
 import { buildAssessmentOutcome } from "@/lib/eligibility/outcome";
 import { ASSESSMENT_REFERENCE_PATTERN } from "@/lib/eligibility/persistence/reference";
@@ -30,7 +30,7 @@ export default async function AdminAssessmentDetailPage({ params }: { params: Pr
   const { assessmentReference } = await params;
   if (!ASSESSMENT_REFERENCE_PATTERN.test(assessmentReference)) notFound();
   const record = await getAssessmentForAdmin(userId, assessmentReference).catch(() => undefined);
-  if (!record) notFound();
+  if (!record) { const preAccount = await getPreAccountAssessmentForAdmin(userId, assessmentReference).catch(() => undefined); if (!preAccount) notFound(); const parsedPre = assessmentPayloadSchema.safeParse({ version: Number(preAccount.assessment.assessmentVersion), status: "complete", currentStepId: "review", answers: preAccount.assessment.answers, outcomeId: preAccount.assessment.preliminaryOutcome, startedAt: preAccount.assessment.startedAt.toISOString() }); return <div className="admin-page assessment-detail-page"><AdminPageHeader eyebrow="Operations / pre-account assessment" title={preAccount.assessment.assessmentReference} description="A durable signed-out eligibility assessment. It is not an authenticated client assessment until secure conversion completes." /><section className="admin-case-context"><span><small>Submission state</small><strong>Pre-account</strong></span><span><small>Lead reference</small><strong>{preAccount.leadReference}</strong></span><span><small>Contact</small><strong>{preAccount.email} · {preAccount.phone}</strong></span><span><small>Consent</small><strong>{preAccount.serviceConsentAt.toLocaleDateString("en-GB")}</strong></span><span><small>Conversion</small><strong>{preAccount.assessment.convertedAt ? "Converted" : "Awaiting account"}</strong></span></section>{parsedPre.success && <GlassSurface strength="medium"><div className="assessment-summary"><h2>{buildAssessmentOutcome(parsedPre.data.answers).headline}</h2><p>{buildAssessmentOutcome(parsedPre.data.answers).explanation}</p></div></GlassSurface>}</div>; }
 
   const { assessment } = record;
   const parsed = assessmentPayloadSchema.safeParse({ version: Number(assessment.assessmentVersion), status: assessment.status === "COMPLETE" ? "complete" : assessment.status === "REVIEW" ? "review" : "in-progress", currentStepId: assessment.currentQuestionId ?? "review", answers: assessment.answers, startedAt: assessment.startedAt.toISOString() });

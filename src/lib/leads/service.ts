@@ -4,14 +4,14 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { clientProfiles } from "@/lib/db/schema/client-profiles";
 import { eligibilityAssessments, eligibilityHandoffs } from "@/lib/db/schema/eligibility";
-import { eligibilityLeadConversionTokens, eligibilityLeadNotes, eligibilityLeads } from "@/lib/db/schema/leads";
+import { eligibilityLeadConversionTokens, eligibilityLeadNotes, eligibilityLeads, preAccountEligibilityAssessments } from "@/lib/db/schema/leads";
 import { staffUsers } from "@/lib/db/schema/staff";
 import { createAssessmentReference } from "@/lib/eligibility/persistence/reference";
 import { buildAssessmentOutcome } from "@/lib/eligibility/outcome";
 import { assessmentPayloadSchema } from "@/lib/eligibility/persistence/validation";
 import { hashHandoffToken } from "@/lib/eligibility/persistence/repository";
 import { createLeadReference, hashLeadToken } from "./reference";
-import { leadCaptureSchema } from "./validation";
+import { leadCaptureSchema, preAccountAssessmentCaptureSchema } from "./validation";
 import { recordStaffAuditEvent } from "@/lib/staff/audit";
 import { getStaffRecordByClerkId, requirePermission } from "@/lib/staff/authorization";
 
@@ -21,9 +21,25 @@ const CONSENT_VERSION = "service-contact-v1";
 const MARKETING_VERSION = "marketing-v1";
 
 export type LeadCaptureResult = { leadReference: string; conversionToken: string };
+export type PreAccountCaptureResult = LeadCaptureResult & { assessmentReference: string };
 
 function token() { return crypto.randomBytes(32).toString("base64url"); }
 function safePayload(payload: unknown) { return assessmentPayloadSchema.parse(payload); }
+
+export async function createPreAccountAssessment(input: unknown): Promise<PreAccountCaptureResult> {
+  const parsed = preAccountAssessmentCaptureSchema.parse(input); if (parsed.honeypot) throw new Error("Invalid assessment capture.");
+  const assessment = safePayload(parsed.assessment); if (assessment.status !== "complete") throw new Error("Complete the assessment before saving it.");
+  const outcome = buildAssessmentOutcome(assessment.answers); const conversionToken = token(); const now = new Date(); const associationHash = hashLeadToken(parsed.associationKey); const db = getDb();
+  return db.transaction(async (tx) => {
+    const existing = (await tx.select({ leadReference: eligibilityLeads.leadReference, assessmentReference: preAccountEligibilityAssessments.assessmentReference }).from(eligibilityLeads).innerJoin(preAccountEligibilityAssessments, eq(preAccountEligibilityAssessments.leadId, eligibilityLeads.id)).where(eq(eligibilityLeads.handoffAssociationHash, associationHash)).limit(1))[0];
+    if (existing) throw new Error("This assessment has already been saved. Please continue with your account.");
+    const handoffToken = token(); const handoff = (await tx.insert(eligibilityHandoffs).values({ tokenHash: hashHandoffToken(handoffToken), assessmentVersion: String(assessment.version), payload: assessment, expiresAt: new Date(now.getTime() + HANDOFF_MINUTES * 60_000) }).returning({ id: eligibilityHandoffs.id }))[0]; if (!handoff) throw new Error("Could not create secure continuation.");
+    const lead = (await tx.insert(eligibilityLeads).values({ leadReference: createLeadReference(), handoffAssociationHash: associationHash, handoffTokenHash: hashHandoffToken(handoffToken), firstName: parsed.firstName, email: parsed.email, normalizedEmail: parsed.email, phone: parsed.phone, preferredContactMethod: "email", outcomeType: outcome.type, issueTags: [outcome.type], landingPath: "/check-eligibility", serviceContactConsentAt: now, serviceContactConsentVersion: CONSENT_VERSION, marketingConsent: parsed.marketingConsent, marketingConsentAt: parsed.marketingConsent ? now : null, marketingConsentVersion: parsed.marketingConsent ? MARKETING_VERSION : null }).returning({ id: eligibilityLeads.id, leadReference: eligibilityLeads.leadReference }))[0]; if (!lead) throw new Error("Could not save this assessment.");
+    const preAccount = (await tx.insert(preAccountEligibilityAssessments).values({ assessmentReference: createAssessmentReference(), leadId: lead.id, assessmentVersion: String(assessment.version), status: "COMPLETE", answers: assessment.answers, preliminaryOutcome: outcome.type, startedAt: assessment.startedAt ? new Date(assessment.startedAt) : now, updatedAt: now }).returning({ assessmentReference: preAccountEligibilityAssessments.assessmentReference }))[0]; if (!preAccount) throw new Error("Could not save this assessment.");
+    await tx.insert(eligibilityLeadConversionTokens).values({ leadId: lead.id, tokenHash: hashLeadToken(conversionToken), expiresAt: new Date(now.getTime() + CONVERSION_MINUTES * 60_000) });
+    return { leadReference: lead.leadReference, assessmentReference: preAccount.assessmentReference, conversionToken };
+  });
+}
 
 export async function createDurableLead(input: unknown): Promise<LeadCaptureResult> {
   const parsed = leadCaptureSchema.parse(input);
@@ -49,7 +65,7 @@ export async function convertLeadForClient(clerkUserId: string, conversionToken:
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(conversionToken)) throw new Error("Invalid conversion token.");
   const db = getDb();
   return db.transaction(async (tx) => {
-    const row = (await tx.select({ tokenId: eligibilityLeadConversionTokens.id, redeemedAt: eligibilityLeadConversionTokens.redeemedAt, expiresAt: eligibilityLeadConversionTokens.expiresAt, lead: eligibilityLeads, handoffHash: eligibilityLeads.handoffTokenHash }).from(eligibilityLeadConversionTokens).innerJoin(eligibilityLeads, eq(eligibilityLeads.id, eligibilityLeadConversionTokens.leadId)).where(eq(eligibilityLeadConversionTokens.tokenHash, hashLeadToken(conversionToken))).limit(1))[0];
+    const row = (await tx.select({ tokenId: eligibilityLeadConversionTokens.id, redeemedAt: eligibilityLeadConversionTokens.redeemedAt, expiresAt: eligibilityLeadConversionTokens.expiresAt, lead: eligibilityLeads, handoffHash: eligibilityLeads.handoffTokenHash, preAccount: preAccountEligibilityAssessments }).from(eligibilityLeadConversionTokens).innerJoin(eligibilityLeads, eq(eligibilityLeads.id, eligibilityLeadConversionTokens.leadId)).leftJoin(preAccountEligibilityAssessments, eq(preAccountEligibilityAssessments.leadId, eligibilityLeads.id)).where(eq(eligibilityLeadConversionTokens.tokenHash, hashLeadToken(conversionToken))).limit(1))[0];
     if (!row) throw new Error("This continuation link has expired or has already been used.");
     const profile = (await tx.select({ id: clientProfiles.id }).from(clientProfiles).where(eq(clientProfiles.clerkUserId, clerkUserId)).limit(1))[0];
     if (!profile) throw new Error("Client profile not found.");
@@ -58,16 +74,18 @@ export async function convertLeadForClient(clerkUserId: string, conversionToken:
       return row.lead.convertedAssessmentId;
     }
     if (row.redeemedAt || row.expiresAt <= new Date()) throw new Error("This continuation link has expired or has already been used.");
-    const handoff = (await tx.select().from(eligibilityHandoffs).where(and(eq(eligibilityHandoffs.tokenHash, row.handoffHash))).limit(1))[0];
-    if (!handoff) throw new Error("The eligibility context is no longer available.");
-    const payload = safePayload(handoff.payload);
-    const existing = (await tx.select({ id: eligibilityAssessments.id }).from(eligibilityAssessments).where(and(eq(eligibilityAssessments.clientProfileId, profile.id), eq(eligibilityAssessments.assessmentVersion, handoff.assessmentVersion), eq(eligibilityAssessments.answers, payload.answers))).limit(1))[0];
+    const handoff = row.preAccount ? undefined : (await tx.select().from(eligibilityHandoffs).where(and(eq(eligibilityHandoffs.tokenHash, row.handoffHash))).limit(1))[0];
+    if (!row.preAccount && !handoff) throw new Error("The eligibility context is no longer available.");
+    const payload = row.preAccount ? { version: Number(row.preAccount.assessmentVersion), status: "complete" as const, currentStepId: "review", outcomeId: row.preAccount.preliminaryOutcome as never, answers: row.preAccount.answers as Record<string, string | string[] | boolean>, startedAt: row.preAccount.startedAt.toISOString() } : safePayload(handoff!.payload);
+    const assessmentVersion = row.preAccount?.assessmentVersion ?? handoff!.assessmentVersion;
+    const existing = (await tx.select({ id: eligibilityAssessments.id }).from(eligibilityAssessments).where(and(eq(eligibilityAssessments.clientProfileId, profile.id), eq(eligibilityAssessments.assessmentVersion, assessmentVersion), eq(eligibilityAssessments.answers, payload.answers))).limit(1))[0];
     const now = new Date();
-    const assessmentId = existing?.id ?? (await tx.insert(eligibilityAssessments).values({ assessmentReference: createAssessmentReference(), clientProfileId: profile.id, assessmentVersion: handoff.assessmentVersion, status: payload.status === "complete" ? "COMPLETE" : "IN_PROGRESS", currentSection: "evidence", currentQuestionId: payload.currentStepId, answers: payload.answers, preliminaryOutcome: payload.outcomeId ?? null, startedAt: payload.startedAt ? new Date(payload.startedAt) : now, updatedAt: now, completedAt: payload.status === "complete" ? now : null }).returning({ id: eligibilityAssessments.id }))[0]?.id;
+    const assessmentId = existing?.id ?? (await tx.insert(eligibilityAssessments).values({ assessmentReference: createAssessmentReference(), clientProfileId: profile.id, assessmentVersion, status: payload.status === "complete" ? "COMPLETE" : "IN_PROGRESS", currentSection: "evidence", currentQuestionId: payload.currentStepId, answers: payload.answers, preliminaryOutcome: payload.outcomeId ?? null, startedAt: payload.startedAt ? new Date(payload.startedAt) : now, updatedAt: now, completedAt: payload.status === "complete" ? now : null }).returning({ id: eligibilityAssessments.id }))[0]?.id;
     if (!assessmentId) throw new Error("Could not save the assessment.");
     await tx.update(eligibilityLeads).set({ status: "CONVERTED", convertedAt: now, convertedClientProfileId: profile.id, convertedAssessmentId: assessmentId, updatedAt: now }).where(eq(eligibilityLeads.id, row.lead.id));
+    if (row.preAccount) await tx.update(preAccountEligibilityAssessments).set({ convertedAt: now, convertedClientProfileId: profile.id, convertedAssessmentId: assessmentId, updatedAt: now }).where(eq(preAccountEligibilityAssessments.id, row.preAccount.id));
     await tx.update(eligibilityLeadConversionTokens).set({ redeemedAt: now }).where(eq(eligibilityLeadConversionTokens.id, row.tokenId));
-    await tx.update(eligibilityHandoffs).set({ redeemedAt: now }).where(eq(eligibilityHandoffs.id, handoff.id));
+    if (handoff) await tx.update(eligibilityHandoffs).set({ redeemedAt: now }).where(eq(eligibilityHandoffs.id, handoff.id));
     return assessmentId;
   });
 }
