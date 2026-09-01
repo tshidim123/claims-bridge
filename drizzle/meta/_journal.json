@@ -127,6 +127,13 @@
       "when": 1788196773468,
       "tag": "0017_tranquil_norrin_radd",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788249751873,
+      "tag": "0018_overjoyed_maddog",
+      "breakpoints": true
     }
   ]
 }

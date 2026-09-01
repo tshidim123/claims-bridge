@@ -9,6 +9,7 @@ export type EligibilitySectionId =
 
 export type EligibilityQuestionId =
   | "jurisdiction"
+  | "custom_location"
   | "jurisdiction_route"
   | "main_home"
   | "tenancy_party"

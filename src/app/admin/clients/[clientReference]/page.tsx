@@ -34,7 +34,9 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
           <dl className="admin-detail-list">
             <div><dt>Profile status</dt><dd>{profile.onboardingStatus.toLowerCase().replaceAll("_", " ")}</dd></div>
             <div><dt>Preferred contact</dt><dd>{profile.preferredContactMethod}</dd></div>
+            <div><dt>Preferred contact time</dt><dd>{profile.preferredContactTime}</dd></div>
             <div><dt>Phone</dt><dd>{profile.phone ?? "Not provided"}</dd></div>
+            <div><dt>Address</dt><dd>{[profile.addressLine1, profile.addressLine2, profile.city, profile.region, profile.postcode, profile.country].filter(Boolean).join(", ") || "Not provided"}</dd></div>
             <div><dt>Profile created</dt><dd>{new Date(profile.createdAt).toLocaleDateString("en-GB", { dateStyle: "medium" })}</dd></div>
           </dl>
         </section>

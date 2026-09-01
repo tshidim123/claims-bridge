@@ -8,6 +8,9 @@ import type {
 
 export type ValidationResult = { valid: true } | { error: string; valid: false };
 
+export const customLocationPattern = /^[\p{L}][\p{L}\s.'-]*$/u;
+export function normalizeCustomLocation(value: string) { return value.trim().replace(/\s+/g, " "); }
+
 function isEmpty(value: AnswerValue | undefined) {
   return (
     value === undefined ||
@@ -92,6 +95,10 @@ export function validateQuestionAnswer(
     const result = z.string().trim().min(minimum).max(maximum).safeParse(value);
     if (!result.success) {
       return { valid: false, error: question.validation?.message ?? "Check the information entered." };
+    }
+    if (question.id === "custom_location") {
+      const location = normalizeCustomLocation(String(value));
+      if (location.length < 2 || location.length > 120 || !customLocationPattern.test(location)) return { valid: false, error: question.validation?.message ?? "Enter a valid location." };
     }
   }
 
