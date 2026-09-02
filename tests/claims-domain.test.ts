@@ -980,3 +980,31 @@ test("pre-account conversion uses authenticated identity and durable snapshot", 
 test("pre-account records are not exposed through the authenticated client assessment repository", () => { const repository = fs.readFileSync(path.resolve("src/lib/eligibility/persistence/repository.ts"), "utf8"); assert.match(repository, /eligibilityAssessments\.clientProfileId/); assert.doesNotMatch(repository, /preAccountEligibilityAssessments/); });
 test("pre-account admin visibility is planned around safe references and no raw identifiers", () => { const verifier = fs.readFileSync(path.resolve("scripts/verify-db.mjs"), "utf8"); const admin = fs.readFileSync(path.resolve("src/app/admin/assessments/page.tsx"), "utf8"); assert.match(verifier, /pre_account_eligibility_assessments/); assert.match(admin, /metadata.*robots/); assert.doesNotMatch(admin, /clerkUserId|clientProfileId/); });
 test("pre-account persistence never creates a client or claim", () => { const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); assert.doesNotMatch(service, /insert\(clientProfiles\)/); assert.doesNotMatch(service, /insert\(claims\)/); assert.match(service, /insert\(preAccountEligibilityAssessments\)/); });
+
+test("public header preserves authenticated identity across profile states", () => {
+  const header = fs.readFileSync(path.resolve("src/components/navigation/public-header.tsx"), "utf8");
+  const resolver = fs.readFileSync(path.resolve("src/lib/auth/public-header-identity.ts"), "utf8");
+  const shell = fs.readFileSync(path.resolve("src/components/layout/public-shell.tsx"), "utf8");
+  assert.match(header, /identity\.isAuthenticated/);
+  assert.match(header, /Sign in/);
+  assert.match(header, /Complete account setup/);
+  assert.match(header, /accountLinks/);
+  assert.match(header, /SignOutButton/);
+  assert.match(resolver, /await auth\(\)/);
+  assert.match(resolver, /getClientProfileSummaryByClerkId/);
+  assert.match(resolver, /getProfileCompletion/);
+  assert.match(resolver, /isAuthenticated: true/);
+  assert.match(resolver, /catch\(\(\) => undefined\)/);
+  assert.match(shell, /resolvePublicHeaderIdentity/);
+  assert.match(shell, /PublicHeader identity=\{identity\}/);
+});
+
+test("public header account navigation uses real private routes and avoids identity leakage", () => {
+  const header = fs.readFileSync(path.resolve("src/components/navigation/public-header.tsx"), "utf8");
+  const layout = fs.readFileSync(path.resolve("src/app/(public)/layout.tsx"), "utf8");
+  for (const route of ["/account", "/account/profile", "/account/assessments", "/account/claims", "/account/messages", "/account/notifications"]) assert.match(header, new RegExp(route.replaceAll("/", "\\/")));
+  assert.match(header, /aria-haspopup="menu"/);
+  assert.match(header, /role="menuitem"/);
+  assert.doesNotMatch(header, /phone|address|clerkUserId|clientProfileId|assessmentsCount/);
+  assert.match(layout, /dynamic = "force-dynamic"/);
+});

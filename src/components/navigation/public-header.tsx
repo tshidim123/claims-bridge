@@ -1,6 +1,9 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Clerk-hosted avatar URLs are runtime-controlled and intentionally avoid broad remote image configuration. */
+
 import Link from "next/link";
+import { SignOutButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -8,6 +11,7 @@ import { flushSync } from "react-dom";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { Icon } from "@/components/ui/icon";
 import { publicNavigation } from "@/config/navigation";
+import type { PublicHeaderIdentity } from "@/lib/auth/public-header-identity";
 import { cn } from "@/lib/utils";
 
 function routeIsActive(pathname: string, href: string) {
@@ -15,7 +19,24 @@ function routeIsActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function PublicHeader() {
+function HeaderAvatar({ identity }: { identity: PublicHeaderIdentity }) {
+  return <span className="public-account__avatar" aria-hidden="true">{identity.imageUrl ? <img src={identity.imageUrl} alt="" /> : identity.initials}</span>;
+}
+
+function accountLabel(identity: PublicHeaderIdentity) {
+  return identity.profileComplete ? identity.displayName ?? "My account" : identity.email ?? "My account";
+}
+
+const accountLinks = [
+  ["Account dashboard", "/account"],
+  ["Profile", "/account/profile"],
+  ["Assessments", "/account/assessments"],
+  ["Claims", "/account/claims"],
+  ["Messages", "/account/messages"],
+  ["Notifications", "/account/notifications"],
+] as const;
+
+export function PublicHeader({ identity }: { identity: PublicHeaderIdentity }) {
   const pathname = usePathname();
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -23,11 +44,19 @@ export function PublicHeader() {
   const headerRef = useRef<HTMLElement>(null);
   const megaMenuRef = useRef<HTMLDivElement>(null);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [accountPanel, setAccountPanel] = useState(false);
 
   const selectedSection = publicNavigation.find(
     (section) => section.label === activePanel,
   );
+
+  useEffect(() => {
+    if (!accountPanel) return;
+    accountMenuRef.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+  }, [accountPanel]);
 
   useEffect(() => {
     function closeOnOutsidePointer(event: PointerEvent) {
@@ -60,6 +89,12 @@ export function PublicHeader() {
 
   return (
     <header className="public-header" ref={headerRef} onKeyDown={(event) => {
+      if (event.key === "Escape" && accountPanel) {
+        event.preventDefault();
+        setAccountPanel(false);
+        accountTriggerRef.current?.focus();
+        return;
+      }
       if (event.key === "Escape" && activePanel) {
         event.preventDefault();
         const label = activePanel;
@@ -118,9 +153,17 @@ export function PublicHeader() {
           </nav>
 
           <div className="public-header__actions">
-            <Link className="public-header__sign-in" href="/sign-in">
-              Sign in
-            </Link>
+            {identity.isAuthenticated ? <div className="public-account">
+              <button className="public-account__trigger" ref={accountTriggerRef} type="button" aria-haspopup="menu" aria-expanded={accountPanel} aria-controls="public-account-menu" aria-label={`Open account menu for ${accountLabel(identity)}`} onClick={() => setAccountPanel((open) => !open)}>
+                <HeaderAvatar identity={identity} /><span className="public-account__label">{accountLabel(identity)}</span><Icon name="chevron" className={cn("public-account__chevron", accountPanel && "is-open")} />
+              </button>
+              {accountPanel && <div className="public-account__menu glass-surface glass-surface--strong" id="public-account-menu" ref={accountMenuRef} role="menu" aria-label="Account menu">
+                <div className="public-account__summary"><HeaderAvatar identity={identity} /><div><strong>{accountLabel(identity)}</strong>{identity.email && <span>{identity.email}</span>}{!identity.profileComplete && <small>Account setup incomplete</small>}</div></div>
+                {!identity.profileComplete && <Link className="public-account__setup" href="/account/onboarding" role="menuitem" onClick={() => setAccountPanel(false)}>Complete account setup <Icon name="arrow" /></Link>}
+                <nav className="public-account__links" aria-label="Account navigation">{accountLinks.map(([label, href]) => <Link key={href} href={href} role="menuitem" onClick={() => setAccountPanel(false)}>{label}</Link>)}</nav>
+                <SignOutButton><button className="public-account__sign-out" type="button" role="menuitem">Sign out</button></SignOutButton>
+              </div>}
+            </div> : <Link className="public-header__sign-in" href="/sign-in">Sign in</Link>}
             <Link className="button button--small button--primary header-eligibility" href="/check-eligibility">
               <span className="button__label">Check eligibility</span>
             </Link>
@@ -231,11 +274,10 @@ export function PublicHeader() {
                 ),
               )}
             </nav>
+            {identity.isAuthenticated && <nav className="mobile-navigation__account-links" aria-label="Mobile account navigation">{!identity.profileComplete && <Link href="/account/onboarding" onClick={closeMobileNavigation}>Complete account setup</Link>}{accountLinks.map(([label, href]) => <Link href={href} key={href} onClick={closeMobileNavigation}>{label}</Link>)}<SignOutButton><button type="button">Sign out</button></SignOutButton></nav>}
           </div>
           <div className="mobile-navigation__footer">
-            <Link className="button button--secondary button--medium" href="/account" onClick={closeMobileNavigation}>
-              <span className="button__label">Client sign in</span>
-            </Link>
+            {identity.isAuthenticated ? <div className="mobile-navigation__account"><HeaderAvatar identity={identity} /><div><strong>{accountLabel(identity)}</strong><small>{identity.profileComplete ? "My account" : "Complete account setup"}</small></div></div> : <Link className="button button--secondary button--medium" href="/sign-in" onClick={closeMobileNavigation}><span className="button__label">Sign in</span></Link>}
             <Link className="button button--primary button--medium" href="/check-eligibility" onClick={closeMobileNavigation}>
               <span className="button__label">Check eligibility</span>
             </Link>
