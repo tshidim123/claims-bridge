@@ -1,0 +1,1 @@
+ALTER TABLE "eligibility_leads" ADD COLUMN "last_name" text;

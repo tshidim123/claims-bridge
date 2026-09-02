@@ -1088,7 +1088,10 @@
 .contactPrivacy svg { width: 1rem; color: var(--color-accent-ice); }
 .contactCaptureForm { display: grid; gap: 1rem; align-content: start; max-width: 38rem; }
 .contactCaptureForm > label:not(.consentLabel) { display: grid; gap: .35rem; color: var(--color-text-muted); font-size: .78rem; }
-.contactCaptureForm input:not([type="checkbox"]) { width: 100%; min-height: 3rem; padding: .7rem .8rem; border: 1px solid var(--color-line-strong); border-radius: .65rem; background: rgb(255 255 255 / 5%); color: inherit; }
+.contactCaptureForm input:not([type="checkbox"]), .contactCaptureForm select { width: 100%; min-height: 3rem; padding: .7rem .8rem; border: 1px solid var(--color-line-strong); border-radius: .65rem; background: rgb(255 255 255 / 5%); color: inherit; font: inherit; }
+.contactCaptureForm select { cursor: pointer; }
+.contactCaptureForm select:focus-visible, .contactCaptureForm input:focus-visible { border-color: var(--color-accent-cyan); outline: 2px solid rgb(77 216 232 / 30%); outline-offset: 2px; }
+.contactHelper { color: var(--color-text-quiet); font-size: .72rem; line-height: 1.45; }
 .contactCaptureActions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: .25rem; }
 .contactCaptureActions :global(.button--large) { min-height: 3.4rem; }
 .signInPrompt { margin: 0; color: var(--color-text-quiet); font-size: .72rem; }

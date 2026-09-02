@@ -12,6 +12,7 @@ export const eligibilityLeads = pgTable("eligibility_leads", {
   handoffAssociationHash: text("handoff_association_hash").notNull().unique(),
   handoffTokenHash: text("handoff_token_hash").notNull().unique(),
   firstName: text("first_name").notNull(),
+  lastName: text("last_name"),
   email: text("email").notNull(),
   normalizedEmail: text("normalized_email").notNull(),
   phone: text("phone"),

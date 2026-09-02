@@ -2799,6 +2799,49 @@ svg {
   .admin-message-composer .button { width: 100%; }
 }
 
+/* Portal scroll boundaries: shell chrome stays stable while long navigation and page content scroll independently. */
+@supports (height: 100dvh) {
+  .account-shell,
+  .admin-shell { min-height: 100dvh; height: 100dvh; }
+  .account-sidebar { height: 100dvh; min-height: 0; }
+  .admin-sidebar { height: calc(100dvh - 2rem); min-height: 0; }
+}
+
+.account-sidebar__content,
+.admin-sidebar__content { min-height: 0; }
+.account-sidebar__content { grid-template-rows: auto minmax(0, 1fr) auto; }
+.account-sidebar .account-navigation,
+.admin-sidebar .admin-navigation {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+.account-sidebar .account-navigation::-webkit-scrollbar,
+.admin-sidebar .admin-navigation::-webkit-scrollbar { width: .35rem; }
+.account-sidebar .account-navigation::-webkit-scrollbar-thumb,
+.admin-sidebar .admin-navigation::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--color-line-strong); }
+.account-shell__workspace,
+.admin-workspace { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.account-navigation__item:focus-visible,
+.admin-navigation a:focus-visible { scroll-margin-block: 1rem; outline: 2px solid var(--color-accent-ice); outline-offset: 2px; }
+
+@media (max-width: 1023px) {
+  .account-shell { height: auto; min-height: 100dvh; }
+  .account-shell__workspace { min-height: 100dvh; overflow: visible; }
+}
+
+@media (max-width: 900px) {
+  .admin-shell { height: auto; min-height: 100dvh; }
+  .admin-workspace { min-height: 100dvh; overflow: visible; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-navigation__item,
+  .admin-navigation a { scroll-behavior: auto; transition: none; }
+}
+
 /* Phase 10E cross-claim operations */
 .admin-navigation__section { display: grid; gap: .3rem; margin-top: .8rem; }
 .admin-navigation__section:first-child { margin-top: 0; }
