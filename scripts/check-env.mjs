@@ -36,4 +36,6 @@ console.log(`R2 document storage: ${storageCount === 0 ? "optional / not configu
 if (storageCount > 0 && storageCount < optionalStorage.length) failed = true;
 const bootstrapId = process.env.STAFF_BOOTSTRAP_CLERK_USER_ID || process.env.BOOTSTRAP_SUPER_ADMIN_CLERK_USER_ID;
 console.log(`Staff bootstrap identity: ${bootstrapId ? "configured for controlled bootstrap" : "not configured (not required after bootstrap)"}`);
+const emailConfigured = Boolean(process.env.RESEND_API_KEY && process.env.CLAIMS_BRIDGE_FROM_EMAIL);
+console.log(`Transactional email provider: ${emailConfigured ? "configured" : "not configured"}`);
 process.exitCode = failed ? 1 : 0;

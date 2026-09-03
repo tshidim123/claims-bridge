@@ -14,11 +14,10 @@ export const leadContactMethodHelperText: Record<LeadContactMethod, string> = {
   sms: "We’ll use this number for text-message contact about your assessment.",
   whatsapp: "We’ll use this number for WhatsApp contact about your assessment.",
 };
-const optionalEmail = z.string().trim().toLowerCase().max(254, "Email address is too long.").refine((value) => !value || z.string().email().safeParse(value).success, "Enter a valid email address.");
 const optionalPhone = z.string().trim().max(40, "Phone number is too long.").transform(normalisePhone).refine((value) => !value || /^\+[1-9]\d{6,14}$/.test(value), "Enter a valid phone number.");
 const addLeadContactPreferenceIssues = (value: { preferredContactMethod?: LeadContactMethod; email?: string; phone?: string }, ctx: z.RefinementCtx) => {
   if (!value.preferredContactMethod) { ctx.addIssue({ code: "custom", path: ["preferredContactMethod"], message: "Choose how you would prefer Claims Bridge to contact you." }); return; }
-  if (value.preferredContactMethod === "email" && !value.email) ctx.addIssue({ code: "custom", path: ["email"], message: "Enter an email address so we can contact you by email." });
+  if (!value.email) ctx.addIssue({ code: "custom", path: ["email"], message: "Enter an email address so we can send your assessment confirmation and secure next steps." });
   if (value.preferredContactMethod !== "email" && !value.phone) {
     const method = value.preferredContactMethod === "whatsapp" ? "WhatsApp" : value.preferredContactMethod === "sms" ? "message" : "call";
     ctx.addIssue({ code: "custom", path: ["phone"], message: `Enter a phone number so we can contact you by ${method}.` });
@@ -28,7 +27,7 @@ export const preAccountContactSchema = z.object({
   firstName: z.string().trim().min(1, "Enter your first name.").max(80, "First name is too long."),
   lastName: z.string().trim().min(1, "Enter your surname.").max(80, "Surname is too long."),
   preferredContactMethod: z.enum(leadContactMethods, { error: "Choose how you would prefer Claims Bridge to contact you." }),
-  email: optionalEmail,
+  email,
   phone: optionalPhone,
 }).superRefine(addLeadContactPreferenceIssues);
 

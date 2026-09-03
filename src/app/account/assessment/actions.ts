@@ -17,7 +17,7 @@ export async function startClaimFromAssessment(_previous: CreateClaimActionState
   const { userId } = await auth();
   if (!userId) return { ok: false, message: "Please sign in before continuing." };
 
-  const parsed = inputSchema.safeParse({ assessmentId: formData.get("assessmentId") });
+  const parsed = inputSchema.safeParse({ assessmentReference: formData.get("assessmentReference") });
   if (!parsed.success) return { ok: false, message: "This assessment could not be identified. Please refresh and try again." };
 
   let claim;

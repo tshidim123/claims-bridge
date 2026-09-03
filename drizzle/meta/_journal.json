@@ -148,6 +148,13 @@
       "when": 1788359518792,
       "tag": "0020_needy_princess_powerful",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788359600000,
+      "tag": "0021_assessment_communications",
+      "breakpoints": true
     }
   ]
 }
