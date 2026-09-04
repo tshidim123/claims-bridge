@@ -3,53 +3,199 @@ import fs from "node:fs";
 import test from "node:test";
 import path from "node:path";
 
-import { CLAIM_REFERENCE_PATTERN, generateClaimReference } from "../src/lib/claims/reference";
-import { canTransitionClaimStatus, claimStageConfig, claimStatusConfig, claimStatuses, isTerminalClaimStatus } from "../src/config/claim-statuses";
-import { claimNextStepConfig, claimTimelineEventLabels, getClaimWaitingOn, getPreliminaryOutcomeLabel, transitionTimelineConfig } from "../src/config/claim-tracking";
-import { canTransitionDocumentStatus, canTransitionEvidenceRequirement, documentCategoryConfig, documentStatusLabels, documentStatuses, evidenceCompletenessStateConfig, evidenceRequirementConfig, evidenceRequirementPriorities, evidenceRequirementStatuses, evidenceRequirementTransitions, evidenceRequirementTypes, isEvidenceRequirementStatus, isEvidenceRequirementType } from "../src/config/evidence";
+import {
+  CLAIM_REFERENCE_PATTERN,
+  generateClaimReference,
+} from "../src/lib/claims/reference";
+import {
+  canTransitionClaimStatus,
+  claimStageConfig,
+  claimStatusConfig,
+  claimStatuses,
+  isTerminalClaimStatus,
+} from "../src/config/claim-statuses";
+import {
+  claimNextStepConfig,
+  claimTimelineEventLabels,
+  getClaimWaitingOn,
+  getPreliminaryOutcomeLabel,
+  transitionTimelineConfig,
+} from "../src/config/claim-tracking";
+import {
+  canTransitionDocumentStatus,
+  canTransitionEvidenceRequirement,
+  documentCategoryConfig,
+  documentStatusLabels,
+  documentStatuses,
+  evidenceCompletenessStateConfig,
+  evidenceRequirementConfig,
+  evidenceRequirementPriorities,
+  evidenceRequirementStatuses,
+  evidenceRequirementTransitions,
+  evidenceRequirementTypes,
+  isEvidenceRequirementStatus,
+  isEvidenceRequirementType,
+} from "../src/config/evidence";
 import { deriveEvidenceSummary } from "../src/lib/evidence/summary";
-import { DOCUMENT_MAX_SIZE_BYTES, DOWNLOAD_URL_EXPIRY_SECONDS, UPLOAD_URL_EXPIRY_SECONDS, isSupportedDocumentMimeType } from "../src/config/evidence";
-import { createOpaqueDocumentReference, createOpaqueStorageKey } from "../src/lib/documents/keys";
-import { createEvidenceRequirementReference, EVIDENCE_REQUIREMENT_REFERENCE_PATTERN } from "../src/lib/evidence/keys";
-import { detectDocumentMimeType, DocumentValidationError, sanitizeFilename, validateUploadRequest } from "../src/lib/documents/validation";
-import { MAX_MESSAGE_LENGTH, messageBodySchema, messageSenderLabels } from "../src/config/messaging";
-import { canDisableNotificationCategory, claimStatusNotificationTypes, notificationDefinitions, notificationPreferenceConfig, notificationTypes, resolveNotificationAction } from "../src/config/notifications";
-import { isDashboardActiveClaim, resolvePrimaryDashboardAction } from "../src/lib/dashboard/priority";
+import {
+  DOCUMENT_MAX_SIZE_BYTES,
+  DOWNLOAD_URL_EXPIRY_SECONDS,
+  UPLOAD_URL_EXPIRY_SECONDS,
+  isSupportedDocumentMimeType,
+} from "../src/config/evidence";
+import {
+  createOpaqueDocumentReference,
+  createOpaqueStorageKey,
+} from "../src/lib/documents/keys";
+import {
+  createEvidenceRequirementReference,
+  EVIDENCE_REQUIREMENT_REFERENCE_PATTERN,
+} from "../src/lib/evidence/keys";
+import {
+  detectDocumentMimeType,
+  DocumentValidationError,
+  sanitizeFilename,
+  validateUploadRequest,
+} from "../src/lib/documents/validation";
+import {
+  MAX_MESSAGE_LENGTH,
+  messageBodySchema,
+  messageSenderLabels,
+} from "../src/config/messaging";
+import {
+  canDisableNotificationCategory,
+  claimStatusNotificationTypes,
+  notificationDefinitions,
+  notificationPreferenceConfig,
+  notificationTypes,
+  resolveNotificationAction,
+} from "../src/config/notifications";
+import {
+  isDashboardActiveClaim,
+  resolvePrimaryDashboardAction,
+} from "../src/lib/dashboard/priority";
 import { mergeDashboardActivity } from "../src/lib/dashboard/priority";
-import { createPublicMetadata, publicCtas, publicRoutePaths, publicScope, makeBreadcrumbs } from "../src/config/public-site";
+import {
+  createPublicMetadata,
+  publicCtas,
+  publicRoutePaths,
+  publicScope,
+  makeBreadcrumbs,
+} from "../src/config/public-site";
 import { publicNavigation } from "../src/config/navigation";
 import { editorialClusters } from "../src/config/knowledge-hub";
-import { hasPermissionForRole, isStaffRole, rolePermissions, staffPermissions, staffRoles } from "../src/config/staff";
-import { STAFF_REFERENCE_PATTERN, createStaffReference } from "../src/lib/staff/reference";
-import { claimAssignmentFilters, operationalPriorities, isOperationalPriority, internalNoteMaxLength } from "../src/config/admin-claims";
-import { NOTE_REFERENCE_PATTERN, createInternalNoteReference } from "../src/lib/admin/claims/references";
-import { futureResults, futureTestimonials, optionalBusinessDetails, publicDisclosures, verifiedTrustFacts } from "../src/config/public-trust";
+import {
+  hasPermissionForRole,
+  isStaffRole,
+  rolePermissions,
+  staffPermissions,
+  staffRoles,
+} from "../src/config/staff";
+import {
+  STAFF_REFERENCE_PATTERN,
+  createStaffReference,
+} from "../src/lib/staff/reference";
+import {
+  claimAssignmentFilters,
+  operationalPriorities,
+  isOperationalPriority,
+  internalNoteMaxLength,
+} from "../src/config/admin-claims";
+import {
+  NOTE_REFERENCE_PATTERN,
+  createInternalNoteReference,
+} from "../src/lib/admin/claims/references";
+import {
+  futureResults,
+  futureTestimonials,
+  optionalBusinessDetails,
+  publicDisclosures,
+  verifiedTrustFacts,
+} from "../src/config/public-trust";
 import { getPublicSitemapPaths } from "../src/app/sitemap";
-import { knowledgeArticles, knowledgeCategories, knowledgeTopics } from "../src/content/knowledge-hub";
-import { calculateReadingTime, getArticleBreadcrumbs, getArticleBySlug, getArticleBySlugIncludingUnpublished, getArticleHeadingIds, getArticleStructuredData, getArticleToc, getArticlesByCategory, getClusterArticles, getEditorialAudit, getFreshnessState, getKnowledgeHubStaticParams, getPublishedArticles, getRelatedArticles, searchKnowledgeArticles } from "../src/lib/knowledge-hub";
-import { clientActionConfig, clientActionStatuses, clientActionTypes } from "../src/config/client-actions";
-import { CLIENT_ACTION_REFERENCE_PATTERN, createClientActionReference } from "../src/lib/actions/keys";
-import { CLIENT_REFERENCE_PATTERN, createClientReference } from "../src/lib/clients/reference";
-import { ASSESSMENT_REFERENCE_PATTERN, createAssessmentReference } from "../src/lib/eligibility/persistence/reference";
-import { createLeadReference, LEAD_REFERENCE_PATTERN } from "../src/lib/leads/reference";
+import {
+  knowledgeArticles,
+  knowledgeCategories,
+  knowledgeTopics,
+} from "../src/content/knowledge-hub";
+import {
+  calculateReadingTime,
+  getArticleBreadcrumbs,
+  getArticleBySlug,
+  getArticleBySlugIncludingUnpublished,
+  getArticleHeadingIds,
+  getArticleStructuredData,
+  getArticleToc,
+  getArticlesByCategory,
+  getClusterArticles,
+  getEditorialAudit,
+  getFreshnessState,
+  getKnowledgeHubStaticParams,
+  getPublishedArticles,
+  getRelatedArticles,
+  searchKnowledgeArticles,
+} from "../src/lib/knowledge-hub";
+import {
+  clientActionConfig,
+  clientActionStatuses,
+  clientActionTypes,
+} from "../src/config/client-actions";
+import {
+  CLIENT_ACTION_REFERENCE_PATTERN,
+  createClientActionReference,
+} from "../src/lib/actions/keys";
+import {
+  CLIENT_REFERENCE_PATTERN,
+  createClientReference,
+} from "../src/lib/clients/reference";
+import {
+  ASSESSMENT_REFERENCE_PATTERN,
+  createAssessmentReference,
+} from "../src/lib/eligibility/persistence/reference";
+import {
+  createLeadReference,
+  LEAD_REFERENCE_PATTERN,
+} from "../src/lib/leads/reference";
 import { leadCaptureSchema } from "../src/lib/leads/validation";
-import { canChangeLeadStatus, isSystemDerivedLeadStatus } from "../src/lib/leads/status";
-import { getReviewQuestions, pruneHiddenAnswers } from "../src/lib/eligibility/flow";
+import {
+  canChangeLeadStatus,
+  isSystemDerivedLeadStatus,
+} from "../src/lib/leads/status";
+import {
+  getReviewQuestions,
+  pruneHiddenAnswers,
+} from "../src/lib/eligibility/flow";
 import { assessmentPayloadSchema } from "../src/lib/eligibility/persistence/validation";
-import { customLocationPattern, normalizeCustomLocation, validateQuestionAnswer } from "../src/lib/eligibility/validation";
+import {
+  customLocationPattern,
+  normalizeCustomLocation,
+  validateQuestionAnswer,
+} from "../src/lib/eligibility/validation";
 import { getQuestionById } from "../src/lib/eligibility/flow";
-import { normalisePhone, profileSchema, profileShareSchema } from "../src/lib/clients/validation";
-import { leadContactMethods, preAccountAssessmentCaptureSchema, preAccountContactSchema } from "../src/lib/leads/validation";
+import {
+  normalisePhone,
+  profileSchema,
+  profileShareSchema,
+} from "../src/lib/clients/validation";
+import {
+  leadContactMethods,
+  preAccountAssessmentCaptureSchema,
+  preAccountContactSchema,
+} from "../src/lib/leads/validation";
 
 test("claim references use the documented secure format", () => {
-  const reference = generateClaimReference(new Date("2026-08-28T00:00:00.000Z"));
+  const reference = generateClaimReference(
+    new Date("2026-08-28T00:00:00.000Z"),
+  );
 
   assert.match(reference, CLAIM_REFERENCE_PATTERN);
   assert.equal(reference.slice(0, 6), "CB-26-");
 });
 
 test("claim reference generation produces unique references in a small sample", () => {
-  const references = new Set(Array.from({ length: 100 }, () => generateClaimReference()));
+  const references = new Set(
+    Array.from({ length: 100 }, () => generateClaimReference()),
+  );
 
   assert.equal(references.size, 100);
 });
@@ -76,7 +222,10 @@ test("claim status maps to broad stage and waiting-on guidance", () => {
 
 test("claim transition graph permits legal movement and blocks forbidden or terminal jumps", () => {
   assert.equal(canTransitionClaimStatus("SUBMITTED", "INITIAL_REVIEW"), true);
-  assert.equal(canTransitionClaimStatus("INITIAL_REVIEW", "CLAIM_ASSESSMENT"), true);
+  assert.equal(
+    canTransitionClaimStatus("INITIAL_REVIEW", "CLAIM_ASSESSMENT"),
+    true,
+  );
   assert.equal(canTransitionClaimStatus("SUBMITTED", "COMPLETED"), false);
   assert.equal(canTransitionClaimStatus("CLOSED", "IN_PROGRESS"), false);
 });
@@ -87,8 +236,14 @@ test("tracking configuration is complete and claim details use safe presentation
     assert.ok(status in transitionTimelineConfig);
   }
 
-  assert.equal(getPreliminaryOutcomeLabel("REVIEW_RECOMMENDED"), "Review recommended");
-  assert.equal(getPreliminaryOutcomeLabel("UNEXPECTED_INTERNAL_VALUE"), "Preliminary outcome recorded");
+  assert.equal(
+    getPreliminaryOutcomeLabel("REVIEW_RECOMMENDED"),
+    "Review recommended",
+  );
+  assert.equal(
+    getPreliminaryOutcomeLabel("UNEXPECTED_INTERNAL_VALUE"),
+    "Preliminary outcome recorded",
+  );
 });
 
 test("evidence type configuration is complete and does not auto-request identity", () => {
@@ -110,25 +265,65 @@ test("evidence requirement transitions are controlled and terminal waivers stay 
     assert.equal(isEvidenceRequirementStatus(status), true);
   }
   assert.equal(canTransitionEvidenceRequirement("REQUESTED", "UPLOADED"), true);
-  assert.equal(canTransitionEvidenceRequirement("UNDER_REVIEW", "MORE_INFORMATION_REQUIRED"), true);
-  assert.equal(canTransitionEvidenceRequirement("REQUESTED", "ACCEPTED"), false);
+  assert.equal(
+    canTransitionEvidenceRequirement(
+      "UNDER_REVIEW",
+      "MORE_INFORMATION_REQUIRED",
+    ),
+    true,
+  );
+  assert.equal(
+    canTransitionEvidenceRequirement("REQUESTED", "ACCEPTED"),
+    false,
+  );
   assert.equal(canTransitionEvidenceRequirement("WAIVED", "UPLOADED"), false);
 });
 
 test("evidence completeness is derived deterministically from current requirements", () => {
   assert.equal(deriveEvidenceSummary([]).completenessState, "NOT_STARTED");
-  assert.equal(deriveEvidenceSummary([{ status: "REQUESTED", required: true, documentCount: 0 }]).completenessState, "ACTION_REQUIRED");
-  assert.equal(deriveEvidenceSummary([{ status: "UPLOADED", required: true, documentCount: 1 }]).completenessState, "READY_FOR_REVIEW");
-  assert.equal(deriveEvidenceSummary([{ status: "UNDER_REVIEW", required: true, documentCount: 1 }]).completenessState, "REVIEWING");
-  assert.equal(deriveEvidenceSummary([{ status: "ACCEPTED", required: true, documentCount: 1 }]).completenessState, "COMPLETE");
-  assert.equal(deriveEvidenceSummary([{ status: "WAIVED", required: true, documentCount: 0 }]).completenessState, "NOT_STARTED");
-  assert.equal(evidenceCompletenessStateConfig.ACTION_REQUIRED.label, "Needs your attention");
+  assert.equal(
+    deriveEvidenceSummary([
+      { status: "REQUESTED", required: true, documentCount: 0 },
+    ]).completenessState,
+    "ACTION_REQUIRED",
+  );
+  assert.equal(
+    deriveEvidenceSummary([
+      { status: "UPLOADED", required: true, documentCount: 1 },
+    ]).completenessState,
+    "READY_FOR_REVIEW",
+  );
+  assert.equal(
+    deriveEvidenceSummary([
+      { status: "UNDER_REVIEW", required: true, documentCount: 1 },
+    ]).completenessState,
+    "REVIEWING",
+  );
+  assert.equal(
+    deriveEvidenceSummary([
+      { status: "ACCEPTED", required: true, documentCount: 1 },
+    ]).completenessState,
+    "COMPLETE",
+  );
+  assert.equal(
+    deriveEvidenceSummary([
+      { status: "WAIVED", required: true, documentCount: 0 },
+    ]).completenessState,
+    "NOT_STARTED",
+  );
+  assert.equal(
+    evidenceCompletenessStateConfig.ACTION_REQUIRED.label,
+    "Needs your attention",
+  );
 });
 
 test("evidence timeline labels are client-safe and configured", () => {
   assert.equal(claimTimelineEventLabels.DOCUMENT_RECEIVED, "Evidence received");
   assert.equal(claimTimelineEventLabels.DOCUMENT_ACCEPTED, "Evidence recorded");
-  assert.equal(claimTimelineEventLabels.MORE_EVIDENCE_REQUIRED, "More evidence required");
+  assert.equal(
+    claimTimelineEventLabels.MORE_EVIDENCE_REQUIRED,
+    "More evidence required",
+  );
 });
 
 test("document upload configuration is conservative and short-lived", () => {
@@ -143,26 +338,76 @@ test("document filenames are sanitized without becoming storage keys", () => {
   const filename = sanitizeFilename("../tenant\\records\u202E.pdf");
   assert.equal(filename, ".._tenant_records.pdf");
   assert.notEqual(createOpaqueStorageKey(), createOpaqueStorageKey());
-  assert.match(createOpaqueStorageKey(), /^quarantine\/[0-9a-f-]+\/[0-9a-f-]+$/);
+  assert.match(
+    createOpaqueStorageKey(),
+    /^quarantine\/[0-9a-f-]+\/[0-9a-f-]+$/,
+  );
   assert.match(createOpaqueDocumentReference(), /^[0-9a-f-]{36}$/);
 });
 
 test("server upload validation checks type, extension and size", () => {
-  const valid = validateUploadRequest({ category: "TENANCY_AGREEMENT", evidenceRequirementType: "TENANCY_AGREEMENT", filename: "agreement.pdf", mimeType: "application/pdf", sizeBytes: 1024 });
+  const valid = validateUploadRequest({
+    category: "TENANCY_AGREEMENT",
+    evidenceRequirementType: "TENANCY_AGREEMENT",
+    filename: "agreement.pdf",
+    mimeType: "application/pdf",
+    sizeBytes: 1024,
+  });
   assert.equal(valid.mimeType, "application/pdf");
-  assert.throws(() => validateUploadRequest({ category: "TENANCY_AGREEMENT", filename: "agreement.html", mimeType: "text/html", sizeBytes: 1024 }), (error) => error instanceof DocumentValidationError && error.code === "UNSUPPORTED_TYPE");
-  assert.throws(() => validateUploadRequest({ category: "TENANCY_AGREEMENT", filename: "agreement.pdf", mimeType: "application/pdf", sizeBytes: DOCUMENT_MAX_SIZE_BYTES + 1 }), (error) => error instanceof DocumentValidationError && error.code === "FILE_TOO_LARGE");
-  assert.equal(detectDocumentMimeType(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])), "application/pdf");
-  assert.equal(detectDocumentMimeType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])), "image/jpeg");
-  assert.equal(detectDocumentMimeType(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), "image/png");
+  assert.throws(
+    () =>
+      validateUploadRequest({
+        category: "TENANCY_AGREEMENT",
+        filename: "agreement.html",
+        mimeType: "text/html",
+        sizeBytes: 1024,
+      }),
+    (error) =>
+      error instanceof DocumentValidationError &&
+      error.code === "UNSUPPORTED_TYPE",
+  );
+  assert.throws(
+    () =>
+      validateUploadRequest({
+        category: "TENANCY_AGREEMENT",
+        filename: "agreement.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: DOCUMENT_MAX_SIZE_BYTES + 1,
+      }),
+    (error) =>
+      error instanceof DocumentValidationError &&
+      error.code === "FILE_TOO_LARGE",
+  );
+  assert.equal(
+    detectDocumentMimeType(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])),
+    "application/pdf",
+  );
+  assert.equal(
+    detectDocumentMimeType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])),
+    "image/jpeg",
+  );
+  assert.equal(
+    detectDocumentMimeType(
+      new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    ),
+    "image/png",
+  );
   assert.equal(detectDocumentMimeType(new Uint8Array([0, 1, 2, 3])), null);
 });
 
 test("message validation trims valid text and rejects empty or oversized bodies", () => {
-  assert.equal(messageBodySchema.parse({ body: "  A tenant update.  " }).body, "A tenant update.");
-  assert.equal(messageBodySchema.parse({ body: "<b>plain text</b>" }).body, "<b>plain text</b>");
+  assert.equal(
+    messageBodySchema.parse({ body: "  A tenant update.  " }).body,
+    "A tenant update.",
+  );
+  assert.equal(
+    messageBodySchema.parse({ body: "<b>plain text</b>" }).body,
+    "<b>plain text</b>",
+  );
   assert.throws(() => messageBodySchema.parse({ body: "   " }));
-  assert.throws(() => messageBodySchema.parse({ body: "x".repeat(MAX_MESSAGE_LENGTH + 1) }));
+  assert.throws(() =>
+    messageBodySchema.parse({ body: "x".repeat(MAX_MESSAGE_LENGTH + 1) }),
+  );
   assert.equal(messageSenderLabels.CLIENT, "You");
   assert.equal(messageSenderLabels.CLAIMS_BRIDGE, "Claims Bridge");
   assert.equal(messageSenderLabels.SYSTEM, "Claims Bridge update");
@@ -172,7 +417,9 @@ test("notification definitions cover controlled types and preserve essential cat
   for (const type of notificationTypes) {
     assert.equal(notificationDefinitions[type].id, type);
     assert.ok(notificationDefinitions[type].title);
-    assert.ok(notificationDefinitions[type].body({ claimReference: "CB-26-ABCDEFGH" }));
+    assert.ok(
+      notificationDefinitions[type].body({ claimReference: "CB-26-ABCDEFGH" }),
+    );
   }
   assert.equal(notificationPreferenceConfig.ACTION_REQUIRED.essential, true);
   assert.equal(notificationPreferenceConfig.DOCUMENTS.essential, false);
@@ -181,24 +428,77 @@ test("notification definitions cover controlled types and preserve essential cat
 });
 
 test("notification actions resolve only to controlled internal routes", () => {
-  assert.equal(resolveNotificationAction("VIEW_MESSAGES", "CB-26-ABCDEFGH"), "/account/claims/CB-26-ABCDEFGH/messages");
-  assert.equal(resolveNotificationAction("VIEW_EVIDENCE", "https://example.com"), null);
+  assert.equal(
+    resolveNotificationAction("VIEW_MESSAGES", "CB-26-ABCDEFGH"),
+    "/account/claims/CB-26-ABCDEFGH/messages",
+  );
+  assert.equal(
+    resolveNotificationAction("VIEW_EVIDENCE", "https://example.com"),
+    null,
+  );
   assert.equal(resolveNotificationAction("ACCOUNT", null), "/account/profile");
   assert.equal(resolveNotificationAction(undefined, undefined), null);
 });
 
 test("claim notification mapping selects meaningful workflow changes", () => {
-  assert.equal(claimStatusNotificationTypes.INITIAL_REVIEW, "CLAIM_PROGRESS_UPDATE");
-  assert.equal(claimStatusNotificationTypes.AWAITING_CLIENT, "CLIENT_ACTION_REQUIRED");
+  assert.equal(
+    claimStatusNotificationTypes.INITIAL_REVIEW,
+    "CLAIM_PROGRESS_UPDATE",
+  );
+  assert.equal(
+    claimStatusNotificationTypes.AWAITING_CLIENT,
+    "CLIENT_ACTION_REQUIRED",
+  );
   assert.equal(claimStatusNotificationTypes.EVIDENCE_REVIEW, undefined);
 });
 
 test("dashboard priority chooses client action before routine progress", () => {
-  const action = resolvePrimaryDashboardAction({ attentionItems: [{ kind: "PROVIDE_EVIDENCE", priority: 1, label: "Review evidence", description: "Evidence needs attention.", destination: "/account/claims/CB-26-ABCDEFGH/evidence", claimReference: "CB-26-ABCDEFGH", title: "Evidence requested", context: "CB-26-ABCDEFGH" }], hasActiveClaim: true, hasAnyClaim: true, mostRelevantClaimReference: "CB-26-ABCDEFGH", assessmentState: "COMPLETE" });
+  const action = resolvePrimaryDashboardAction({
+    attentionItems: [
+      {
+        kind: "PROVIDE_EVIDENCE",
+        priority: 1,
+        label: "Review evidence",
+        description: "Evidence needs attention.",
+        destination: "/account/claims/CB-26-ABCDEFGH/evidence",
+        claimReference: "CB-26-ABCDEFGH",
+        title: "Evidence requested",
+        context: "CB-26-ABCDEFGH",
+      },
+    ],
+    hasActiveClaim: true,
+    hasAnyClaim: true,
+    mostRelevantClaimReference: "CB-26-ABCDEFGH",
+    assessmentState: "COMPLETE",
+  });
   assert.equal(action.kind, "PROVIDE_EVIDENCE");
-  assert.equal(resolvePrimaryDashboardAction({ attentionItems: [], hasActiveClaim: false, hasAnyClaim: false, assessmentState: "NONE" }).kind, "CHECK_ELIGIBILITY");
-  assert.equal(resolvePrimaryDashboardAction({ attentionItems: [], hasActiveClaim: false, hasAnyClaim: false, assessmentState: "COMPLETE" }).kind, "START_CLAIM");
-  assert.equal(resolvePrimaryDashboardAction({ attentionItems: [], hasActiveClaim: false, hasAnyClaim: true, assessmentState: "COMPLETE" }).kind, "REVIEW_CLAIM");
+  assert.equal(
+    resolvePrimaryDashboardAction({
+      attentionItems: [],
+      hasActiveClaim: false,
+      hasAnyClaim: false,
+      assessmentState: "NONE",
+    }).kind,
+    "CHECK_ELIGIBILITY",
+  );
+  assert.equal(
+    resolvePrimaryDashboardAction({
+      attentionItems: [],
+      hasActiveClaim: false,
+      hasAnyClaim: false,
+      assessmentState: "COMPLETE",
+    }).kind,
+    "START_CLAIM",
+  );
+  assert.equal(
+    resolvePrimaryDashboardAction({
+      attentionItems: [],
+      hasActiveClaim: false,
+      hasAnyClaim: true,
+      assessmentState: "COMPLETE",
+    }).kind,
+    "REVIEW_CLAIM",
+  );
 });
 
 test("dashboard active claims exclude terminal workflow records", () => {
@@ -210,20 +510,49 @@ test("dashboard active claims exclude terminal workflow records", () => {
 
 test("dashboard activity removes same-claim events that represent the same moment", () => {
   const date = new Date("2026-08-28T10:00:00.000Z");
-  const activity = mergeDashboardActivity({ timeline: [{ title: "Evidence requested", description: "Evidence stage", claimReference: "CB-26-ABCDEFGH", occurredAt: date }], notifications: [{ title: "Evidence has been requested", body: "Supporting evidence has been requested.", claimReference: "CB-26-ABCDEFGH", createdAt: new Date(date.getTime() + 20_000), actionHref: "/account/claims/CB-26-ABCDEFGH/evidence" }] });
+  const activity = mergeDashboardActivity({
+    timeline: [
+      {
+        title: "Evidence requested",
+        description: "Evidence stage",
+        claimReference: "CB-26-ABCDEFGH",
+        occurredAt: date,
+      },
+    ],
+    notifications: [
+      {
+        title: "Evidence has been requested",
+        body: "Supporting evidence has been requested.",
+        claimReference: "CB-26-ABCDEFGH",
+        createdAt: new Date(date.getTime() + 20_000),
+        actionHref: "/account/claims/CB-26-ABCDEFGH/evidence",
+      },
+    ],
+  });
   assert.equal(activity.length, 1);
   assert.equal(activity[0].claimReference, "CB-26-ABCDEFGH");
 });
 
 test("dashboard activity keeps separate claim events and caps the ledger", () => {
-  const activity = mergeDashboardActivity({ timeline: Array.from({ length: 10 }, (_, index) => ({ title: `Update ${index}`, description: "A real update", claimReference: `CB-26-${String(index).padStart(8, "0")}`, occurredAt: new Date(Date.UTC(2026, 7, 28, 10, index)) })), notifications: [] });
+  const activity = mergeDashboardActivity({
+    timeline: Array.from({ length: 10 }, (_, index) => ({
+      title: `Update ${index}`,
+      description: "A real update",
+      claimReference: `CB-26-${String(index).padStart(8, "0")}`,
+      occurredAt: new Date(Date.UTC(2026, 7, 28, 10, index)),
+    })),
+    notifications: [],
+  });
   assert.equal(activity.length, 8);
 });
 
 test("public route architecture and CTA destinations are complete", () => {
   assert.equal(new Set(publicRoutePaths).size, publicRoutePaths.length);
   for (const route of publicRoutePaths) {
-    const routeFile = route === "/" ? "src/app/(public)/page.tsx" : `src/app/(public)${route}/page.tsx`;
+    const routeFile =
+      route === "/"
+        ? "src/app/(public)/page.tsx"
+        : `src/app/(public)${route}/page.tsx`;
     assert.equal(fs.existsSync(path.resolve(routeFile)), true, route);
   }
   assert.equal(publicCtas.checkEligibility.href, "/check-eligibility");
@@ -238,15 +567,24 @@ test("public content keeps scope and metadata safe", () => {
   const metadata = createPublicMetadata("A", "B", "/about");
   assert.equal(metadata.alternates?.canonical, "/about");
   assert.equal(metadata.openGraph?.url, "/about");
-  const breadcrumbs = makeBreadcrumbs([{ label: "Home", href: "/" }, { label: "Current" }]);
+  const breadcrumbs = makeBreadcrumbs([
+    { label: "Home", href: "/" },
+    { label: "Current" },
+  ]);
   assert.equal(breadcrumbs.at(-1)?.href, undefined);
 });
 
 test("public navigation destinations resolve without exposing account routes", () => {
-  const destinations = publicNavigation.flatMap((section) => [section.href, ...(section.items ?? []).map((item) => item.href)]);
+  const destinations = publicNavigation.flatMap((section) => [
+    section.href,
+    ...(section.items ?? []).map((item) => item.href),
+  ]);
   for (const destination of destinations) {
     const route = destination.split("#")[0];
-    const routeFile = route === "/" ? "src/app/(public)/page.tsx" : `src/app/(public)${route}/page.tsx`;
+    const routeFile =
+      route === "/"
+        ? "src/app/(public)/page.tsx"
+        : `src/app/(public)${route}/page.tsx`;
     assert.equal(fs.existsSync(path.resolve(routeFile)), true, destination);
     assert.equal(route.startsWith("/account"), false);
   }
@@ -268,11 +606,19 @@ test("public trust, legal disclosures and sitemap remain configuration-driven", 
   const sitemapPaths = getPublicSitemapPaths();
   assert.ok(sitemapPaths.includes("/why-claims-bridge"));
   assert.ok(sitemapPaths.includes("/security"));
-  assert.equal(sitemapPaths.some((route) => route.startsWith("/account") || route.startsWith("/api")), false);
+  assert.equal(
+    sitemapPaths.some(
+      (route) => route.startsWith("/account") || route.startsWith("/api"),
+    ),
+    false,
+  );
 });
 
 test("Knowledge Hub publishing model validates slugs, metadata and publication safety", () => {
-  assert.equal(new Set(knowledgeArticles.map((article) => article.slug)).size, knowledgeArticles.length);
+  assert.equal(
+    new Set(knowledgeArticles.map((article) => article.slug)).size,
+    knowledgeArticles.length,
+  );
   assert.equal(getPublishedArticles().length, 16);
   assert.ok(getPublishedArticles().length <= 20);
   for (const article of getPublishedArticles()) {
@@ -290,21 +636,39 @@ test("Knowledge Hub publishing model validates slugs, metadata and publication s
     assert.ok(article.nextReviewAt);
     assert.ok(knowledgeCategories[article.category]);
     assert.ok(calculateReadingTime(article) >= 1);
-    for (const relatedSlug of article.relatedSlugs) assert.ok(getArticleBySlug(relatedSlug), relatedSlug);
-    for (const serviceLink of article.serviceLinks) assert.equal(serviceLink.href.startsWith("/account"), false);
+    for (const relatedSlug of article.relatedSlugs)
+      assert.ok(getArticleBySlug(relatedSlug), relatedSlug);
+    for (const serviceLink of article.serviceLinks)
+      assert.equal(serviceLink.href.startsWith("/account"), false);
   }
   assert.equal(getArticleBySlug("draft-internal-review-example"), undefined);
   assert.equal(getArticleBySlug("review-only-legal-topic"), undefined);
-  assert.equal(getArticleBySlugIncludingUnpublished("draft-internal-review-example")?.status, "DRAFT");
-  assert.equal(getArticleBySlugIncludingUnpublished("review-only-legal-topic")?.legalReview, "REVIEW_REQUIRED");
+  assert.equal(
+    getArticleBySlugIncludingUnpublished("draft-internal-review-example")
+      ?.status,
+    "DRAFT",
+  );
+  assert.equal(
+    getArticleBySlugIncludingUnpublished("review-only-legal-topic")
+      ?.legalReview,
+    "REVIEW_REQUIRED",
+  );
 });
 
 test("Knowledge Hub search, categories, routes and structured data are deterministic", () => {
-  assert.ok(searchKnowledgeArticles("paperwork").some((article) => article.slug === "organise-tenancy-deposit-paperwork"));
+  assert.ok(
+    searchKnowledgeArticles("paperwork").some(
+      (article) => article.slug === "organise-tenancy-deposit-paperwork",
+    ),
+  );
   assert.ok(searchKnowledgeArticles("scheme").length > 0);
   assert.ok(searchKnowledgeArticles("deposit-protection").length > 0);
   assert.equal(searchKnowledgeArticles("no such guidance phrase").length, 0);
-  assert.ok(getArticlesByCategory("evidence").every((article) => article.category === "evidence"));
+  assert.ok(
+    getArticlesByCategory("evidence").every(
+      (article) => article.category === "evidence",
+    ),
+  );
   assert.equal(getKnowledgeHubStaticParams().length, 16);
   const article = getArticleBySlug("eligibility-check-and-claims-bridge-claim");
   assert.ok(article);
@@ -314,9 +678,19 @@ test("Knowledge Hub search, categories, routes and structured data are determini
   assert.equal(structured.datePublished, article.publishedAt);
   assert.equal(structured.author.name, article.author);
   const sitemap = getPublicSitemapPaths();
-  assert.ok(sitemap.includes("/knowledge-hub/eligibility-check-and-claims-bridge-claim"));
+  assert.ok(
+    sitemap.includes(
+      "/knowledge-hub/eligibility-check-and-claims-bridge-claim",
+    ),
+  );
   assert.ok(sitemap.includes("/knowledge-hub/category/evidence"));
-  assert.equal(sitemap.some((route) => route.includes("draft-internal") || route.includes("review-only")), false);
+  assert.equal(
+    sitemap.some(
+      (route) =>
+        route.includes("draft-internal") || route.includes("review-only"),
+    ),
+    false,
+  );
 });
 
 test("Knowledge Hub clusters, pillars and governance audit remain coherent", () => {
@@ -324,7 +698,11 @@ test("Knowledge Hub clusters, pillars and governance audit remain coherent", () 
   for (const cluster of editorialClusters) {
     assert.ok(cluster.pillar.href.startsWith("/"));
     assert.ok(getClusterArticles(cluster).length > 0, cluster.id);
-    assert.ok(cluster.relatedServiceRoutes.every((route) => !route.href.startsWith("/account")));
+    assert.ok(
+      cluster.relatedServiceRoutes.every(
+        (route) => !route.href.startsWith("/account"),
+      ),
+    );
   }
   const audit = getEditorialAudit(new Date("2026-08-28T00:00:00.000Z"));
   assert.equal(audit.errors.length, 0, audit.errors.join("\n"));
@@ -333,14 +711,21 @@ test("Knowledge Hub clusters, pillars and governance audit remain coherent", () 
   assert.equal(audit.reviewCount, 1);
   assert.equal(audit.reviewDueCount, 0);
   assert.ok(knowledgeTopics.includes("Evidence"));
-  assert.ok(getPublishedArticles().filter((article) => article.featured).every((article) => article.status === "PUBLISHED"));
+  assert.ok(
+    getPublishedArticles()
+      .filter((article) => article.featured)
+      .every((article) => article.status === "PUBLISHED"),
+  );
 });
 
 test("Knowledge Hub search weights title and topic matches above body matches", () => {
   const titleResults = searchKnowledgeArticles("digital evidence");
   assert.equal(titleResults[0]?.slug, "preparing-digital-evidence-for-review");
   const topicResults = searchKnowledgeArticles("notifications");
-  assert.equal(topicResults[0]?.slug, "how-the-claims-bridge-client-portal-helps-track-a-claim");
+  assert.equal(
+    topicResults[0]?.slug,
+    "how-the-claims-bridge-client-portal-helps-track-a-claim",
+  );
 });
 
 test("Knowledge Hub related content and headings are deterministic", () => {
@@ -350,10 +735,22 @@ test("Knowledge Hub related content and headings are deterministic", () => {
   assert.ok(related.length > 0 && related.length <= 3);
   assert.equal(new Set(related.map((item) => item.slug)).size, related.length);
   const headings = getArticleHeadingIds(article);
-  assert.equal(new Set(headings.map((heading) => heading.id)).size, headings.length);
+  assert.equal(
+    new Set(headings.map((heading) => heading.id)).size,
+    headings.length,
+  );
   assert.ok(getArticleToc(article).length >= 2);
-  assert.equal(getFreshnessState(article, new Date("2026-08-08T00:00:00.000Z")), "CURRENT");
-  assert.equal(getFreshnessState({ ...article, nextReviewAt: "2026-08-10" }, new Date("2026-08-28T00:00:00.000Z")), "OVERDUE");
+  assert.equal(
+    getFreshnessState(article, new Date("2026-08-08T00:00:00.000Z")),
+    "CURRENT",
+  );
+  assert.equal(
+    getFreshnessState(
+      { ...article, nextReviewAt: "2026-08-10" },
+      new Date("2026-08-28T00:00:00.000Z"),
+    ),
+    "OVERDUE",
+  );
 });
 
 test("staff roles and permissions remain centralized and least-privilege", () => {
@@ -365,28 +762,48 @@ test("staff roles and permissions remain centralized and least-privilege", () =>
   assert.equal(hasPermissionForRole("SUPPORT", "STAFF_VIEW"), false);
   assert.equal(hasPermissionForRole("READ_ONLY", "CLAIMS_VIEW"), true);
   assert.equal(hasPermissionForRole("READ_ONLY", "CLAIMS_MANAGE"), false);
-  assert.equal(hasPermissionForRole("EVIDENCE_REVIEWER", "CLAIMS_MANAGE"), false);
+  assert.equal(
+    hasPermissionForRole("EVIDENCE_REVIEWER", "CLAIMS_MANAGE"),
+    false,
+  );
   assert.equal(hasPermissionForRole("SUPPORT", "CLAIMS_MANAGE"), false);
-  assert.equal(new Set(rolePermissions.SUPER_ADMIN).size, staffPermissions.length);
+  assert.equal(
+    new Set(rolePermissions.SUPER_ADMIN).size,
+    staffPermissions.length,
+  );
 });
 
 test("operational claim controls use a small controlled vocabulary", () => {
   assert.deepEqual(operationalPriorities, ["NORMAL", "ELEVATED", "HIGH"]);
   assert.equal(isOperationalPriority("HIGH"), true);
   assert.equal(isOperationalPriority("CRITICAL"), false);
-  assert.deepEqual(claimAssignmentFilters, ["ALL", "MINE", "UNASSIGNED", "ASSIGNED"]);
+  assert.deepEqual(claimAssignmentFilters, [
+    "ALL",
+    "MINE",
+    "UNASSIGNED",
+    "ASSIGNED",
+  ]);
   assert.equal(internalNoteMaxLength, 10_000);
 });
 
 test("staff and note references are opaque and non-sequential", () => {
-  const references = new Set(Array.from({ length: 100 }, () => createInternalNoteReference()));
+  const references = new Set(
+    Array.from({ length: 100 }, () => createInternalNoteReference()),
+  );
   assert.equal(references.size, 100);
-  for (const reference of references) assert.match(reference, NOTE_REFERENCE_PATTERN);
+  for (const reference of references)
+    assert.match(reference, NOTE_REFERENCE_PATTERN);
 });
 
 test("operations schema preserves assignment history and private notes", () => {
-  const schema = fs.readFileSync(path.resolve("src/lib/db/schema/operations.ts"), "utf8");
-  const migration = fs.readFileSync(path.resolve("drizzle/0010_bright_sage.sql"), "utf8");
+  const schema = fs.readFileSync(
+    path.resolve("src/lib/db/schema/operations.ts"),
+    "utf8",
+  );
+  const migration = fs.readFileSync(
+    path.resolve("drizzle/0010_bright_sage.sql"),
+    "utf8",
+  );
   assert.match(schema, /claim_assignments/);
   assert.match(schema, /claim_internal_notes/);
   assert.match(schema, /uniqueIndex\("claim_assignments_current_claim_unique"/);
@@ -399,17 +816,29 @@ test("operations schema preserves assignment history and private notes", () => {
 });
 
 test("staff claim mutations are permissioned, transactional and audited", () => {
-  const service = fs.readFileSync(path.resolve("src/lib/admin/claims/service.ts"), "utf8");
+  const service = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/service.ts"),
+    "utf8",
+  );
   assert.match(service, /requirePermission\(clerkUserId, "CLAIMS_MANAGE"\)/);
   assert.match(service, /db\.transaction/);
-  for (const action of ["CLAIM_PRIORITY_CHANGED", "CLAIM_ASSIGNED", "CLAIM_REASSIGNED", "CLAIM_UNASSIGNED", "CLAIM_INTERNAL_NOTE_ADDED"]) {
+  for (const action of [
+    "CLAIM_PRIORITY_CHANGED",
+    "CLAIM_ASSIGNED",
+    "CLAIM_REASSIGNED",
+    "CLAIM_UNASSIGNED",
+    "CLAIM_INTERNAL_NOTE_ADDED",
+  ]) {
     assert.match(service, new RegExp(action));
   }
   assert.doesNotMatch(service, /body[^\n]*metadata/);
 });
 
 test("assignment service derives staff identity and rejects suspended or unsuitable staff", () => {
-  const service = fs.readFileSync(path.resolve("src/lib/admin/claims/service.ts"), "utf8");
+  const service = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/service.ts"),
+    "utf8",
+  );
   assert.match(service, /getActorIdInTransaction/);
   assert.match(service, /staffUsers\.clerkUserId/);
   assert.match(service, /staff\.status !== "ACTIVE"/);
@@ -418,7 +847,10 @@ test("assignment service derives staff identity and rejects suspended or unsuita
 });
 
 test("claim queue search is server-authorized, URL-filtered and paginated", () => {
-  const repository = fs.readFileSync(path.resolve("src/lib/admin/claims/repository.ts"), "utf8");
+  const repository = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/repository.ts"),
+    "utf8",
+  );
   assert.match(repository, /requirePermission\(clerkUserId, "CLAIMS_VIEW"\)/);
   assert.match(repository, /ilike\(claims\.claimReference/);
   assert.match(repository, /ilike\(clientProfiles\.firstName/);
@@ -428,7 +860,10 @@ test("claim queue search is server-authorized, URL-filtered and paginated", () =
 });
 
 test("admin workspace view models omit raw identity and storage identifiers", () => {
-  const repository = fs.readFileSync(path.resolve("src/lib/admin/claims/repository.ts"), "utf8");
+  const repository = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/repository.ts"),
+    "utf8",
+  );
   assert.match(repository, /claimReference/);
   assert.match(repository, /displayName/);
   assert.doesNotMatch(repository, /clerkUserId:\s*base/);
@@ -437,16 +872,36 @@ test("admin workspace view models omit raw identity and storage identifiers", ()
 });
 
 test("internal operational state is excluded from client claim reads", () => {
-  const claimRepository = fs.readFileSync(path.resolve("src/lib/claims/repository.ts"), "utf8");
-  const dashboard = fs.readFileSync(path.resolve("src/lib/dashboard/service.ts"), "utf8");
+  const claimRepository = fs.readFileSync(
+    path.resolve("src/lib/claims/repository.ts"),
+    "utf8",
+  );
+  const dashboard = fs.readFileSync(
+    path.resolve("src/lib/dashboard/service.ts"),
+    "utf8",
+  );
   assert.match(claimRepository, /clientClaimColumns/);
-  assert.doesNotMatch(claimRepository, /operationalPriority:\s*claims\.operationalPriority/);
-  assert.doesNotMatch(dashboard, /operationalPriority:\s*claims\.operationalPriority/);
+  assert.doesNotMatch(
+    claimRepository,
+    /operationalPriority:\s*claims\.operationalPriority/,
+  );
+  assert.doesNotMatch(
+    dashboard,
+    /operationalPriority:\s*claims\.operationalPriority/,
+  );
 });
 
 test("Phase 10B does not expose later operational mutations", () => {
-  const adminSources = (fs.readdirSync(path.resolve("src/app/admin/claims"), { recursive: true }) as string[]).filter((entry) => entry.endsWith(".tsx"));
-  const source = adminSources.map((entry) => fs.readFileSync(path.resolve("src/app/admin/claims", entry), "utf8")).join("\n");
+  const adminSources = (
+    fs.readdirSync(path.resolve("src/app/admin/claims"), {
+      recursive: true,
+    }) as string[]
+  ).filter((entry) => entry.endsWith(".tsx"));
+  const source = adminSources
+    .map((entry) =>
+      fs.readFileSync(path.resolve("src/app/admin/claims", entry), "utf8"),
+    )
+    .join("\n");
   assert.doesNotMatch(source, /transitionClaimStatus/);
   assert.doesNotMatch(source, /updateEvidenceRequirementStatus/);
   assert.doesNotMatch(source, /createClaimsBridgeMessage/);
@@ -454,16 +909,28 @@ test("Phase 10B does not expose later operational mutations", () => {
 });
 
 test("admin claims are absent from public indexing and navigation", () => {
-  const adminLayout = fs.readFileSync(path.resolve("src/app/admin/layout.tsx"), "utf8");
-  const robotsSource = fs.readFileSync(path.resolve("src/app/robots.ts"), "utf8");
+  const adminLayout = fs.readFileSync(
+    path.resolve("src/app/admin/layout.tsx"),
+    "utf8",
+  );
+  const robotsSource = fs.readFileSync(
+    path.resolve("src/app/robots.ts"),
+    "utf8",
+  );
   assert.match(adminLayout, /index: false/);
   assert.match(robotsSource, /"\/admin"/);
-  assert.equal(getPublicSitemapPaths().some((route) => route.startsWith("/admin")), false);
+  assert.equal(
+    getPublicSitemapPaths().some((route) => route.startsWith("/admin")),
+    false,
+  );
 });
 
 test("staff reference and sanitized context do not expose Clerk or database identifiers", () => {
   assert.match(createStaffReference(), STAFF_REFERENCE_PATTERN);
-  const authorizationSource = fs.readFileSync(path.resolve("src/lib/staff/authorization.ts"), "utf8");
+  const authorizationSource = fs.readFileSync(
+    path.resolve("src/lib/staff/authorization.ts"),
+    "utf8",
+  );
   assert.match(authorizationSource, /server-only/);
   assert.match(authorizationSource, /return \{ staffReference:/);
   assert.doesNotMatch(authorizationSource, /return \{\s*clerkUserId/);
@@ -471,25 +938,49 @@ test("staff reference and sanitized context do not expose Clerk or database iden
 });
 
 test("audit metadata is allow-listed and admin boundaries are not public", () => {
-  const auditSource = fs.readFileSync(path.resolve("src/lib/staff/audit.ts"), "utf8");
+  const auditSource = fs.readFileSync(
+    path.resolve("src/lib/staff/audit.ts"),
+    "utf8",
+  );
   assert.match(auditSource, /server-only/);
   assert.match(auditSource, /previousRole/);
   assert.match(auditSource, /reasonCode/);
   assert.doesNotMatch(auditSource, /messageBody/);
   assert.doesNotMatch(auditSource, /token/);
   const proxySource = fs.readFileSync(path.resolve("src/proxy.ts"), "utf8");
-  const robotsSource = fs.readFileSync(path.resolve("src/app/robots.ts"), "utf8");
+  const robotsSource = fs.readFileSync(
+    path.resolve("src/app/robots.ts"),
+    "utf8",
+  );
   assert.match(proxySource, /isAdminRoute/);
   assert.match(robotsSource, /"\/admin"/);
-  assert.equal(getPublicSitemapPaths().some((route) => route.startsWith("/admin")), false);
-  const publicDestinations = publicNavigation.flatMap((section) => [section.href, ...(section.items ?? []).map((item) => item.href)]);
-  assert.equal(publicDestinations.some((route) => route.startsWith("/admin")), false);
+  assert.equal(
+    getPublicSitemapPaths().some((route) => route.startsWith("/admin")),
+    false,
+  );
+  const publicDestinations = publicNavigation.flatMap((section) => [
+    section.href,
+    ...(section.items ?? []).map((item) => item.href),
+  ]);
+  assert.equal(
+    publicDestinations.some((route) => route.startsWith("/admin")),
+    false,
+  );
 });
 
 test("staff management and bootstrap source preserve lockout protections", () => {
-  const serviceSource = fs.readFileSync(path.resolve("src/lib/staff/service.ts"), "utf8");
-  const bootstrapSource = fs.readFileSync(path.resolve("scripts/bootstrap-staff.ts"), "utf8");
-  const migration = fs.readFileSync(path.resolve("drizzle/0009_odd_azazel.sql"), "utf8");
+  const serviceSource = fs.readFileSync(
+    path.resolve("src/lib/staff/service.ts"),
+    "utf8",
+  );
+  const bootstrapSource = fs.readFileSync(
+    path.resolve("scripts/bootstrap-staff.ts"),
+    "utf8",
+  );
+  const migration = fs.readFileSync(
+    path.resolve("drizzle/0009_odd_azazel.sql"),
+    "utf8",
+  );
   assert.match(serviceSource, /LAST_SUPER_ADMIN/);
   assert.match(serviceSource, /db\.transaction/);
   assert.match(bootstrapSource, /STAFF_BOOTSTRAP_CLERK_USER_ID/);
@@ -502,51 +993,115 @@ test("staff management and bootstrap source preserve lockout protections", () =>
 test("Phase 10C workflow graphs remain canonical and document review is deliberately gated", () => {
   assert.equal(canTransitionDocumentStatus("UPLOADED", "UNDER_REVIEW"), true);
   assert.equal(canTransitionDocumentStatus("UNDER_REVIEW", "ACCEPTED"), true);
-  assert.equal(canTransitionDocumentStatus("UNDER_REVIEW", "REPLACEMENT_REQUESTED"), true);
+  assert.equal(
+    canTransitionDocumentStatus("UNDER_REVIEW", "REPLACEMENT_REQUESTED"),
+    true,
+  );
   assert.equal(canTransitionDocumentStatus("ACCEPTED", "UNDER_REVIEW"), false);
-  assert.deepEqual(documentStatuses, ["PENDING_UPLOAD", "UPLOADED", "UNDER_REVIEW", "ACCEPTED", "REJECTED", "REPLACEMENT_REQUESTED"]);
+  assert.deepEqual(documentStatuses, [
+    "PENDING_UPLOAD",
+    "UPLOADED",
+    "UNDER_REVIEW",
+    "ACCEPTED",
+    "REJECTED",
+    "REPLACEMENT_REQUESTED",
+  ]);
   assert.equal(documentStatusLabels.ACCEPTED, "Recorded as accepted");
 });
 
 test("evidence requirements use opaque references and controlled request vocabulary", () => {
-  const references = new Set(Array.from({ length: 100 }, () => createEvidenceRequirementReference()));
+  const references = new Set(
+    Array.from({ length: 100 }, () => createEvidenceRequirementReference()),
+  );
   assert.equal(references.size, 100);
-  for (const reference of references) assert.match(reference, EVIDENCE_REQUIREMENT_REFERENCE_PATTERN);
+  for (const reference of references)
+    assert.match(reference, EVIDENCE_REQUIREMENT_REFERENCE_PATTERN);
   assert.deepEqual(evidenceRequirementPriorities, ["LOW", "NORMAL", "HIGH"]);
-  assert.equal(evidenceRequirementConfig.IDENTITY_DOCUMENT.sensitivity, "sensitive");
+  assert.equal(
+    evidenceRequirementConfig.IDENTITY_DOCUMENT.sensitivity,
+    "sensitive",
+  );
 });
 
 test("Phase 10C migration safely adds evidence references and workflow audit actions", () => {
-  const migration = fs.readFileSync(path.resolve("drizzle/0011_nappy_fat_cobra.sql"), "utf8");
-  for (const action of ["CLAIM_STATUS_CHANGED", "EVIDENCE_REQUESTED", "EVIDENCE_STATUS_CHANGED", "DOCUMENT_STATUS_CHANGED"]) assert.match(migration, new RegExp(action));
+  const migration = fs.readFileSync(
+    path.resolve("drizzle/0011_nappy_fat_cobra.sql"),
+    "utf8",
+  );
+  for (const action of [
+    "CLAIM_STATUS_CHANGED",
+    "EVIDENCE_REQUESTED",
+    "EVIDENCE_STATUS_CHANGED",
+    "DOCUMENT_STATUS_CHANGED",
+  ])
+    assert.match(migration, new RegExp(action));
   assert.match(migration, /UPDATE "claim_evidence_requirements"/);
   assert.match(migration, /requirement_reference_unique/);
   assert.match(migration, /SET NOT NULL/);
 });
 
 test("staff workflow service delegates to canonical domains and audits every mutation", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/admin/claims/workflow-service.ts"), "utf8");
-  for (const permission of ["CLAIMS_TRANSITION_STATUS", "EVIDENCE_REQUEST", "EVIDENCE_REVIEW", "DOCUMENTS_REVIEW"]) assert.match(source, new RegExp(`requirePermission\\(clerkUserId, "${permission}"\\)`));
-  for (const canonical of ["transitionClaimStatusInTransaction", "requestEvidenceInTransaction", "updateEvidenceRequirementStatusInTransaction", "transitionDocumentStatusInTransaction"]) assert.match(source, new RegExp(canonical));
-  for (const action of ["CLAIM_STATUS_CHANGED", "EVIDENCE_REQUESTED", "EVIDENCE_STATUS_CHANGED", "DOCUMENT_STATUS_CHANGED"]) assert.match(source, new RegExp(action));
+  const source = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/workflow-service.ts"),
+    "utf8",
+  );
+  for (const permission of [
+    "CLAIMS_TRANSITION_STATUS",
+    "EVIDENCE_REQUEST",
+    "EVIDENCE_REVIEW",
+    "DOCUMENTS_REVIEW",
+  ])
+    assert.match(
+      source,
+      new RegExp(`requirePermission\\(clerkUserId, "${permission}"\\)`),
+    );
+  for (const canonical of [
+    "transitionClaimStatusInTransaction",
+    "requestEvidenceInTransaction",
+    "updateEvidenceRequirementStatusInTransaction",
+    "transitionDocumentStatusInTransaction",
+  ])
+    assert.match(source, new RegExp(canonical));
+  for (const action of [
+    "CLAIM_STATUS_CHANGED",
+    "EVIDENCE_REQUESTED",
+    "EVIDENCE_STATUS_CHANGED",
+    "DOCUMENT_STATUS_CHANGED",
+  ])
+    assert.match(source, new RegExp(action));
   assert.match(source, /actorType: "STAFF"/);
   assert.doesNotMatch(source, /actorStaffUserId: clerkUserId/);
 });
 
 test("staff workflow UI uses opaque targets and does not expose later-phase reply or deletion controls", () => {
-  const actions = fs.readFileSync(path.resolve("src/app/admin/claims/actions.ts"), "utf8");
-  const evidencePage = fs.readFileSync(path.resolve("src/app/admin/claims/[claimReference]/evidence/page.tsx"), "utf8");
-  const documentsPage = fs.readFileSync(path.resolve("src/app/admin/claims/[claimReference]/documents/page.tsx"), "utf8");
+  const actions = fs.readFileSync(
+    path.resolve("src/app/admin/claims/actions.ts"),
+    "utf8",
+  );
+  const evidencePage = fs.readFileSync(
+    path.resolve("src/app/admin/claims/[claimReference]/evidence/page.tsx"),
+    "utf8",
+  );
+  const documentsPage = fs.readFileSync(
+    path.resolve("src/app/admin/claims/[claimReference]/documents/page.tsx"),
+    "utf8",
+  );
   assert.match(actions, /CB-EVR-\[0-9A-F\]\{8\}/);
   assert.match(actions, /documentReferenceSchema = z\.string\(\)\.uuid/);
   assert.match(evidencePage, /AdminEvidenceRequestForm/);
   assert.match(evidencePage, /AdminEvidenceRequirementActions/);
   assert.match(documentsPage, /AdminDocumentReviewControls/);
-  assert.doesNotMatch(`${evidencePage}\n${documentsPage}`, /Delete document|Reply to client|Send reply|transitionClaimStatus/);
+  assert.doesNotMatch(
+    `${evidencePage}\n${documentsPage}`,
+    /Delete document|Reply to client|Send reply|transitionClaimStatus/,
+  );
 });
 
 test("technical document review remains unavailable without secure storage configuration", () => {
-  const service = fs.readFileSync(path.resolve("src/lib/documents/service.ts"), "utf8");
+  const service = fs.readFileSync(
+    path.resolve("src/lib/documents/service.ts"),
+    "utf8",
+  );
   assert.match(service, /isR2Configured/);
   assert.match(service, /securityStatus !== "VALIDATED"/);
   assert.match(service, /storageKey/);
@@ -555,9 +1110,18 @@ test("technical document review remains unavailable without secure storage confi
 });
 
 test("client-facing repositories do not return staff workflow fields", () => {
-  const clientClaim = fs.readFileSync(path.resolve("src/lib/claims/repository.ts"), "utf8");
-  const clientEvidence = fs.readFileSync(path.resolve("src/lib/evidence/repository.ts"), "utf8");
-  const dashboard = fs.readFileSync(path.resolve("src/lib/dashboard/service.ts"), "utf8");
+  const clientClaim = fs.readFileSync(
+    path.resolve("src/lib/claims/repository.ts"),
+    "utf8",
+  );
+  const clientEvidence = fs.readFileSync(
+    path.resolve("src/lib/evidence/repository.ts"),
+    "utf8",
+  );
+  const dashboard = fs.readFileSync(
+    path.resolve("src/lib/dashboard/service.ts"),
+    "utf8",
+  );
   assert.doesNotMatch(clientClaim, /operationalPriority/);
   assert.doesNotMatch(dashboard, /operationalPriority/);
   assert.doesNotMatch(clientEvidence, /staffAudit|internalNote|staffReference/);
@@ -566,16 +1130,30 @@ test("client-facing repositories do not return staff workflow fields", () => {
 test("Phase 10D client actions use a small controlled vocabulary and opaque references", () => {
   assert.deepEqual(clientActionStatuses, ["OPEN", "COMPLETED", "CANCELLED"]);
   assert.equal(clientActionTypes.length, 5);
-  assert.equal(clientActionConfig.CONTACT_CLAIMS_BRIDGE.clientCanComplete, false);
-  const refs = new Set(Array.from({ length: 100 }, () => createClientActionReference()));
+  assert.equal(
+    clientActionConfig.CONTACT_CLAIMS_BRIDGE.clientCanComplete,
+    false,
+  );
+  const refs = new Set(
+    Array.from({ length: 100 }, () => createClientActionReference()),
+  );
   assert.equal(refs.size, 100);
   for (const ref of refs) assert.match(ref, CLIENT_ACTION_REFERENCE_PATTERN);
 });
 
 test("Phase 10D messaging and action boundaries are server-authorized and client-safe", () => {
-  const messaging = fs.readFileSync(path.resolve("src/lib/admin/claims/messaging-service.ts"), "utf8");
-  const actions = fs.readFileSync(path.resolve("src/lib/admin/claims/action-service.ts"), "utf8");
-  const clientActions = fs.readFileSync(path.resolve("src/lib/actions/repository.ts"), "utf8");
+  const messaging = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/messaging-service.ts"),
+    "utf8",
+  );
+  const actions = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/action-service.ts"),
+    "utf8",
+  );
+  const clientActions = fs.readFileSync(
+    path.resolve("src/lib/actions/repository.ts"),
+    "utf8",
+  );
   assert.match(messaging, /MESSAGES_REPLY/);
   assert.match(messaging, /MESSAGES_MANAGE_CONVERSATION/);
   assert.match(messaging, /senderType: "CLAIMS_BRIDGE"/);
@@ -586,13 +1164,25 @@ test("Phase 10D messaging and action boundaries are server-authorized and client
   assert.match(actions, /CLIENT_ACTION_CREATED/);
   assert.match(clientActions, /clientVisible/);
   assert.match(clientActions, /getClaimForClient/);
-  assert.doesNotMatch(clientActions, /staffUsers|operationalPriority|internalNote/);
+  assert.doesNotMatch(
+    clientActions,
+    /staffUsers|operationalPriority|internalNote/,
+  );
 });
 
 test("Phase 10D schema and UI keep messages, actions and later-phase capabilities distinct", () => {
-  const migration = fs.readFileSync(path.resolve("drizzle/0013_lively_christian_walker.sql"), "utf8");
-  const messagePage = fs.readFileSync(path.resolve("src/app/admin/claims/[claimReference]/messages/page.tsx"), "utf8");
-  const messageUi = fs.readFileSync(path.resolve("src/components/admin/admin-message-workspace.tsx"), "utf8");
+  const migration = fs.readFileSync(
+    path.resolve("drizzle/0013_lively_christian_walker.sql"),
+    "utf8",
+  );
+  const messagePage = fs.readFileSync(
+    path.resolve("src/app/admin/claims/[claimReference]/messages/page.tsx"),
+    "utf8",
+  );
+  const messageUi = fs.readFileSync(
+    path.resolve("src/components/admin/admin-message-workspace.tsx"),
+    "utf8",
+  );
   assert.match(migration, /claim_action_requirements/);
   assert.match(migration, /client_request_id/);
   assert.match(messagePage, /getAdminClaimMessagingWorkspace/);
@@ -602,58 +1192,119 @@ test("Phase 10D schema and UI keep messages, actions and later-phase capabilitie
 });
 
 test("Phase 10E client references are opaque, random and unique in a sample", () => {
-  const references = new Set(Array.from({ length: 100 }, () => createClientReference()));
+  const references = new Set(
+    Array.from({ length: 100 }, () => createClientReference()),
+  );
   assert.equal(references.size, 100);
-  for (const reference of references) assert.match(reference, CLIENT_REFERENCE_PATTERN);
+  for (const reference of references)
+    assert.match(reference, CLIENT_REFERENCE_PATTERN);
 });
 
 test("Phase 10E operations repositories are server-only and permission-scoped", () => {
-  const repository = fs.readFileSync(path.resolve("src/lib/admin/operations/repository.ts"), "utf8");
+  const repository = fs.readFileSync(
+    path.resolve("src/lib/admin/operations/repository.ts"),
+    "utf8",
+  );
   assert.match(repository, /import "server-only"/);
-  for (const permission of ["MESSAGES_VIEW", "EVIDENCE_VIEW", "DOCUMENTS_VIEW", "CLAIMS_VIEW", "CLIENTS_VIEW", "STAFF_VIEW"]) assert.match(repository, new RegExp(permission));
+  for (const permission of [
+    "MESSAGES_VIEW",
+    "EVIDENCE_VIEW",
+    "DOCUMENTS_VIEW",
+    "CLAIMS_VIEW",
+    "CLIENTS_VIEW",
+    "STAFF_VIEW",
+  ])
+    assert.match(repository, new RegExp(permission));
   assert.match(repository, /limit\(5\)/);
-  assert.doesNotMatch(repository, /message body|internal notes|document contents/i);
+  assert.doesNotMatch(
+    repository,
+    /message body|internal notes|document contents/i,
+  );
   assert.doesNotMatch(repository, /clerkUserId:\s*row|storageKey/);
 });
 
 test("Phase 10E global routes stay private and use safe references", () => {
-  const routes = ["messages", "evidence", "documents", "client-actions", "clients", "search"];
+  const routes = [
+    "messages",
+    "evidence",
+    "documents",
+    "client-actions",
+    "clients",
+    "search",
+  ];
   for (const route of routes) {
-    const source = fs.readFileSync(path.resolve(`src/app/admin/${route}/page.tsx`), "utf8");
+    const source = fs.readFileSync(
+      path.resolve(`src/app/admin/${route}/page.tsx`),
+      "utf8",
+    );
     assert.match(source, /robots:\s*\{\s*index:\s*false,\s*follow:\s*false/);
     assert.match(source, /AdminAccessDenied/);
   }
-  const clientPage = fs.readFileSync(path.resolve("src/app/admin/clients/[clientReference]/page.tsx"), "utf8");
+  const clientPage = fs.readFileSync(
+    path.resolve("src/app/admin/clients/[clientReference]/page.tsx"),
+    "utf8",
+  );
   assert.match(clientPage, /clientReference/);
   assert.doesNotMatch(clientPage, /clerkUserId|\bdbId\b/);
 });
 
 test("Phase 10E migration adds a safe backfilled client reference without changing prior migrations", () => {
-  const migration = fs.readFileSync(path.resolve("drizzle/0014_empty_taskmaster.sql"), "utf8");
+  const migration = fs.readFileSync(
+    path.resolve("drizzle/0014_empty_taskmaster.sql"),
+    "utf8",
+  );
   assert.match(migration, /ADD COLUMN "client_reference" text/);
   assert.match(migration, /gen_random_uuid/);
   assert.match(migration, /SET NOT NULL/);
   assert.match(migration, /client_profiles_client_reference_unique/);
-  assert.equal(fs.existsSync(path.resolve("drizzle/0015_flat_banshee.sql")), true);
+  assert.equal(
+    fs.existsSync(path.resolve("drizzle/0015_flat_banshee.sql")),
+    true,
+  );
 });
 
 test("Phase 10F adds only the required client-profile audit enum value", () => {
-  const migration = fs.readFileSync(path.resolve("drizzle/0015_flat_banshee.sql"), "utf8");
-  assert.match(migration, /ALTER TYPE.*staff_audit_action.*CLIENT_PROFILE_UPDATED/);
+  const migration = fs.readFileSync(
+    path.resolve("drizzle/0015_flat_banshee.sql"),
+    "utf8",
+  );
+  assert.match(
+    migration,
+    /ALTER TYPE.*staff_audit_action.*CLIENT_PROFILE_UPDATED/,
+  );
   assert.doesNotMatch(migration, /CREATE TABLE|ADD COLUMN|DROP|DELETE/i);
 });
 
 test("Phase 10E navigation contains only permission-aware functional queue destinations", () => {
-  const source = fs.readFileSync(path.resolve("src/components/admin/admin-navigation.tsx"), "utf8");
-  for (const route of ["/admin/messages", "/admin/evidence", "/admin/documents", "/admin/client-actions", "/admin/clients"]) assert.match(source, new RegExp(route.replaceAll("/", "\\/")));
+  const source = fs.readFileSync(
+    path.resolve("src/components/admin/admin-navigation.tsx"),
+    "utf8",
+  );
+  for (const route of [
+    "/admin/messages",
+    "/admin/evidence",
+    "/admin/documents",
+    "/admin/client-actions",
+    "/admin/clients",
+  ])
+    assert.match(source, new RegExp(route.replaceAll("/", "\\/")));
   assert.match(source, /hasPermissionForRole/);
   assert.doesNotMatch(source, /leaderboard|performance|analytics/i);
 });
 
 test("Phase 10F staff management remains centralized and protected", () => {
-  const service = fs.readFileSync(path.resolve("src/lib/staff/service.ts"), "utf8");
-  const provisioning = fs.readFileSync(path.resolve("src/lib/staff/provisioning.ts"), "utf8");
-  const team = fs.readFileSync(path.resolve("src/app/admin/team/page.tsx"), "utf8");
+  const service = fs.readFileSync(
+    path.resolve("src/lib/staff/service.ts"),
+    "utf8",
+  );
+  const provisioning = fs.readFileSync(
+    path.resolve("src/lib/staff/provisioning.ts"),
+    "utf8",
+  );
+  const team = fs.readFileSync(
+    path.resolve("src/app/admin/team/page.tsx"),
+    "utf8",
+  );
   assert.match(service, /STAFF_MANAGE/);
   assert.match(service, /SUPER_ADMIN/);
   assert.match(service, /LAST_SUPER_ADMIN/);
@@ -669,27 +1320,59 @@ test("Phase 10F staff management remains centralized and protected", () => {
 });
 
 test("Phase 10F client corrections are allow-listed, concurrent and audited without PII values", () => {
-  const service = fs.readFileSync(path.resolve("src/lib/clients/admin-service.ts"), "utf8");
-  const action = fs.readFileSync(path.resolve("src/app/admin/clients/actions.ts"), "utf8");
-  const page = fs.readFileSync(path.resolve("src/app/admin/clients/[clientReference]/page.tsx"), "utf8");
+  const service = fs.readFileSync(
+    path.resolve("src/lib/clients/admin-service.ts"),
+    "utf8",
+  );
+  const action = fs.readFileSync(
+    path.resolve("src/app/admin/clients/actions.ts"),
+    "utf8",
+  );
+  const page = fs.readFileSync(
+    path.resolve("src/app/admin/clients/[clientReference]/page.tsx"),
+    "utf8",
+  );
   assert.match(service, /CLIENTS_MANAGE/);
   assert.match(service, /EDITABLE_FIELDS/);
   assert.match(service, /expectedUpdatedAt/);
   assert.match(service, /CLIENT_PROFILE_UPDATED/);
   assert.match(service, /changedFields/);
-  assert.doesNotMatch(service, /set\(\{[^}]*clerkUserId|set\(\{[^}]*clientReference/);
+  assert.doesNotMatch(
+    service,
+    /set\(\{[^}]*clerkUserId|set\(\{[^}]*clientReference/,
+  );
   assert.match(action, /updateClientOperationalProfile/);
   assert.match(page, /AdminClientCorrectionForm/);
 });
 
 test("Phase 10F audit explorer and system status are protected and sanitized", () => {
-  const repository = fs.readFileSync(path.resolve("src/lib/staff/repository.ts"), "utf8");
-  const auditPage = fs.readFileSync(path.resolve("src/app/admin/audit/page.tsx"), "utf8");
-  const status = fs.readFileSync(path.resolve("src/lib/system/status.ts"), "utf8");
-  const systemPage = fs.readFileSync(path.resolve("src/app/admin/system/page.tsx"), "utf8");
+  const repository = fs.readFileSync(
+    path.resolve("src/lib/staff/repository.ts"),
+    "utf8",
+  );
+  const auditPage = fs.readFileSync(
+    path.resolve("src/app/admin/audit/page.tsx"),
+    "utf8",
+  );
+  const status = fs.readFileSync(
+    path.resolve("src/lib/system/status.ts"),
+    "utf8",
+  );
+  const systemPage = fs.readFileSync(
+    path.resolve("src/app/admin/system/page.tsx"),
+    "utf8",
+  );
   assert.match(repository, /getStaffAuditExplorer/);
   assert.match(repository, /AUDIT_VIEW/);
-  for (const field of ["action", "actor", "targetType", "targetReference", "from", "to"]) assert.match(auditPage, new RegExp(field));
+  for (const field of [
+    "action",
+    "actor",
+    "targetType",
+    "targetReference",
+    "from",
+    "to",
+  ])
+    assert.match(auditPage, new RegExp(field));
   assert.doesNotMatch(auditPage, /Edit audit|Delete audit|Archive audit/i);
   assert.match(systemPage, /SETTINGS_VIEW/);
   assert.match(status, /databaseReachability/);
@@ -699,8 +1382,17 @@ test("Phase 10F audit explorer and system status are protected and sanitized", (
 
 test("Phase 10F readiness keeps bootstrap explicit, admin dynamic and undocumented secrets absent", () => {
   const env = fs.readFileSync(path.resolve("scripts/check-env.mjs"), "utf8");
-  const layout = fs.readFileSync(path.resolve("src/app/admin/layout.tsx"), "utf8");
-  const docs = ["docs/admin-operations.md", "docs/admin-e2e-checklist.md", "docs/production-readiness.md"].map((file) => fs.readFileSync(path.resolve(file), "utf8")).join("\n");
+  const layout = fs.readFileSync(
+    path.resolve("src/app/admin/layout.tsx"),
+    "utf8",
+  );
+  const docs = [
+    "docs/admin-operations.md",
+    "docs/admin-e2e-checklist.md",
+    "docs/production-readiness.md",
+  ]
+    .map((file) => fs.readFileSync(path.resolve(file), "utf8"))
+    .join("\n");
   assert.match(env, /BOOTSTRAP_SUPER_ADMIN_CLERK_USER_ID/);
   assert.match(env, /optional \/ not configured/);
   assert.doesNotMatch(env, /console\.log\(.*process\.env\[/);
@@ -711,7 +1403,10 @@ test("Phase 10F readiness keeps bootstrap explicit, admin dynamic and undocument
 });
 
 test("Phase 10G bootstrap is an explicit async CLI with verified identity and sanitized failure output", () => {
-  const source = fs.readFileSync(path.resolve("scripts/bootstrap-staff.ts"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("scripts/bootstrap-staff.ts"),
+    "utf8",
+  );
   assert.match(source, /STAFF_BOOTSTRAP_CLERK_USER_ID/);
   assert.match(source, /BOOTSTRAP_SUPER_ADMIN_CLERK_USER_ID/);
   assert.match(source, /users\.getUser\(clerkUserId\)/);
@@ -723,7 +1418,10 @@ test("Phase 10G bootstrap is an explicit async CLI with verified identity and sa
 
 test("Phase 10G production checks require a canonical HTTPS origin and safe headers are configured", () => {
   const env = fs.readFileSync(path.resolve("scripts/check-env.mjs"), "utf8");
-  const smoke = fs.readFileSync(path.resolve("scripts/smoke-production.mjs"), "utf8");
+  const smoke = fs.readFileSync(
+    path.resolve("scripts/smoke-production.mjs"),
+    "utf8",
+  );
   const nextConfig = fs.readFileSync(path.resolve("next.config.ts"), "utf8");
   const packageJson = fs.readFileSync(path.resolve("package.json"), "utf8");
   assert.match(env, /NEXT_PUBLIC_SITE_URL/);
@@ -747,43 +1445,105 @@ test("Clerk path routing uses public optional catch-all auth routes and preserve
   assert.ok(fs.existsSync(signUpPath));
   assert.equal(fs.existsSync(path.resolve("src/app/sign-in/page.tsx")), false);
   assert.equal(fs.existsSync(path.resolve("src/app/sign-up/page.tsx")), false);
-  assert.match(fs.readFileSync(signInPath, "utf8"), /routing="path" path="\/sign-in"/);
-  assert.match(fs.readFileSync(signInPath, "utf8"), /fallbackRedirectUrl="\/account"/);
-  assert.match(fs.readFileSync(signUpPath, "utf8"), /routing="path" path="\/sign-up"/);
+  assert.match(
+    fs.readFileSync(signInPath, "utf8"),
+    /routing="path" path="\/sign-in"/,
+  );
+  assert.match(
+    fs.readFileSync(signInPath, "utf8"),
+    /fallbackRedirectUrl="\/account"/,
+  );
+  assert.match(
+    fs.readFileSync(signUpPath, "utf8"),
+    /routing="path" path="\/sign-up"/,
+  );
   assert.match(proxy, /isAccountRoute/);
   assert.match(proxy, /isAdminRoute/);
 });
 
 test("public navigation uses stable item identifiers for duplicate destinations", () => {
-  const header = fs.readFileSync(path.resolve("src/components/navigation/public-header.tsx"), "utf8");
-  const rootLayout = fs.readFileSync(path.resolve("src/app/layout.tsx"), "utf8");
+  const header = fs.readFileSync(
+    path.resolve("src/components/navigation/public-header.tsx"),
+    "utf8",
+  );
+  const rootLayout = fs.readFileSync(
+    path.resolve("src/app/layout.tsx"),
+    "utf8",
+  );
   const items = publicNavigation.flatMap((section) => section.items ?? []);
   const ids = items.map((item) => item.id);
 
   assert.equal(new Set(ids).size, ids.length);
-  assert.equal(items.filter((item) => item.href === "/knowledge-hub").length, 1);
-  assert.equal(items.filter((item) => item.href === "/guides/deposit-protection").length, 3);
+  assert.equal(
+    items.filter((item) => item.href === "/knowledge-hub").length,
+    1,
+  );
+  assert.equal(
+    items.filter((item) => item.href === "/guides/deposit-protection").length,
+    3,
+  );
   assert.match(header, /key=\{item\.id\}/);
   assert.match(rootLayout, /data-scroll-behavior="smooth"/);
 });
 
 test("Phase 11A uses opaque assessment references, real account routes, and reversible claim archival", () => {
-  const assessmentReferences = new Set(Array.from({ length: 100 }, () => createAssessmentReference()));
+  const assessmentReferences = new Set(
+    Array.from({ length: 100 }, () => createAssessmentReference()),
+  );
   assert.equal(assessmentReferences.size, 100);
-  for (const reference of assessmentReferences) assert.match(reference, ASSESSMENT_REFERENCE_PATTERN);
+  for (const reference of assessmentReferences)
+    assert.match(reference, ASSESSMENT_REFERENCE_PATTERN);
 
-  const migration = fs.readFileSync(path.resolve("drizzle/0016_orange_mesmero.sql"), "utf8");
-  const claimsSchema = fs.readFileSync(path.resolve("src/lib/db/schema/claims.ts"), "utf8");
-  const assessmentSchema = fs.readFileSync(path.resolve("src/lib/db/schema/eligibility.ts"), "utf8");
-  const archiveService = fs.readFileSync(path.resolve("src/lib/admin/claims/service.ts"), "utf8");
-  const accountProfile = fs.readFileSync(path.resolve("src/app/account/profile/page.tsx"), "utf8");
-  const accountDocuments = fs.readFileSync(path.resolve("src/app/account/documents/page.tsx"), "utf8");
-  const assessmentIndex = fs.readFileSync(path.resolve("src/app/account/assessments/page.tsx"), "utf8");
-  const assessmentDetail = fs.readFileSync(path.resolve("src/app/account/assessments/[assessmentReference]/page.tsx"), "utf8");
-  const adminClientProfile = fs.readFileSync(path.resolve("src/app/admin/clients/[clientReference]/page.tsx"), "utf8");
-  const adminAssessmentDetail = fs.readFileSync(path.resolve("src/app/admin/clients/[clientReference]/assessments/[assessmentReference]/page.tsx"), "utf8");
-  const claimNavigation = fs.readFileSync(path.resolve("src/config/navigation.ts"), "utf8");
-  const verifier = fs.readFileSync(path.resolve("scripts/verify-db.mjs"), "utf8");
+  const migration = fs.readFileSync(
+    path.resolve("drizzle/0016_orange_mesmero.sql"),
+    "utf8",
+  );
+  const claimsSchema = fs.readFileSync(
+    path.resolve("src/lib/db/schema/claims.ts"),
+    "utf8",
+  );
+  const assessmentSchema = fs.readFileSync(
+    path.resolve("src/lib/db/schema/eligibility.ts"),
+    "utf8",
+  );
+  const archiveService = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/service.ts"),
+    "utf8",
+  );
+  const accountProfile = fs.readFileSync(
+    path.resolve("src/app/account/profile/page.tsx"),
+    "utf8",
+  );
+  const accountDocuments = fs.readFileSync(
+    path.resolve("src/app/account/documents/page.tsx"),
+    "utf8",
+  );
+  const assessmentIndex = fs.readFileSync(
+    path.resolve("src/app/account/assessments/page.tsx"),
+    "utf8",
+  );
+  const assessmentDetail = fs.readFileSync(
+    path.resolve("src/app/account/assessments/[assessmentReference]/page.tsx"),
+    "utf8",
+  );
+  const adminClientProfile = fs.readFileSync(
+    path.resolve("src/app/admin/clients/[clientReference]/page.tsx"),
+    "utf8",
+  );
+  const adminAssessmentDetail = fs.readFileSync(
+    path.resolve(
+      "src/app/admin/clients/[clientReference]/assessments/[assessmentReference]/page.tsx",
+    ),
+    "utf8",
+  );
+  const claimNavigation = fs.readFileSync(
+    path.resolve("src/config/navigation.ts"),
+    "utf8",
+  );
+  const verifier = fs.readFileSync(
+    path.resolve("scripts/verify-db.mjs"),
+    "utf8",
+  );
 
   assert.match(migration, /assessment_reference/);
   assert.match(migration, /archived_at/);
@@ -809,12 +1569,30 @@ test("Phase 11A uses opaque assessment references, real account routes, and reve
 });
 
 test("Phase 11C exposes durable cross-client leads and assessments only through staff-authorized repositories", () => {
-  const operations = fs.readFileSync(path.resolve("src/lib/admin/operations/repository.ts"), "utf8");
-  const navigation = fs.readFileSync(path.resolve("src/components/admin/admin-navigation.tsx"), "utf8");
-  const overview = fs.readFileSync(path.resolve("src/app/admin/page.tsx"), "utf8");
-  const leads = fs.readFileSync(path.resolve("src/app/admin/leads/page.tsx"), "utf8");
-  const assessments = fs.readFileSync(path.resolve("src/app/admin/assessments/page.tsx"), "utf8");
-  const persistence = fs.readFileSync(path.resolve("src/lib/eligibility/persistence/repository.ts"), "utf8");
+  const operations = fs.readFileSync(
+    path.resolve("src/lib/admin/operations/repository.ts"),
+    "utf8",
+  );
+  const navigation = fs.readFileSync(
+    path.resolve("src/components/admin/admin-navigation.tsx"),
+    "utf8",
+  );
+  const overview = fs.readFileSync(
+    path.resolve("src/app/admin/page.tsx"),
+    "utf8",
+  );
+  const leads = fs.readFileSync(
+    path.resolve("src/app/admin/leads/page.tsx"),
+    "utf8",
+  );
+  const assessments = fs.readFileSync(
+    path.resolve("src/app/admin/assessments/page.tsx"),
+    "utf8",
+  );
+  const persistence = fs.readFileSync(
+    path.resolve("src/lib/eligibility/persistence/repository.ts"),
+    "utf8",
+  );
 
   assert.match(operations, /getAdminLeadQueue/);
   assert.match(operations, /getAdminAssessmentQueue/);
@@ -823,7 +1601,10 @@ test("Phase 11C exposes durable cross-client leads and assessments only through 
   assert.match(operations, /not exists \(select 1 from claims/);
   assert.match(leads, /getAdminLeadQueue/);
   assert.match(assessments, /getAdminAssessmentQueue/);
-  assert.match(assessments, /\/admin\/assessments\/\$\{encodeURIComponent\(item\.assessmentReference\)\}/);
+  assert.match(
+    assessments,
+    /\/admin\/assessments\/\$\{encodeURIComponent\(item\.assessmentReference\)\}/,
+  );
   assert.match(navigation, /label: "Leads"/);
   assert.match(navigation, /label: "Assessments"/);
   assert.match(overview, /totalClients/);
@@ -833,50 +1614,215 @@ test("Phase 11C exposes durable cross-client leads and assessments only through 
   assert.doesNotMatch(assessments, /clerkUserId|assessment\.answers|tokenHash/);
 });
 
-const leadInput = { firstName: "A", email: "RENTER@example.com", preferredContactMethod: "email", serviceContactConsent: "yes", associationKey: "123456789012345678901234", assessment: { version: 1, status: "complete", currentStepId: "review", answers: {}, startedAt: null } };
-test("lead references are opaque and formatted safely", () => { const refs = new Set(Array.from({ length: 100 }, createLeadReference)); assert.equal(refs.size, 100); for (const ref of refs) assert.match(ref, LEAD_REFERENCE_PATTERN); });
-test("lead capture requires service consent and defaults marketing to false", () => { const parsed = leadCaptureSchema.parse(leadInput); assert.equal(parsed.email, "renter@example.com"); assert.equal(parsed.marketingConsent, false); assert.throws(() => leadCaptureSchema.parse({ ...leadInput, serviceContactConsent: undefined })); });
-test("lead capture rejects malformed contact details and honeypots", () => { assert.throws(() => leadCaptureSchema.parse({ ...leadInput, email: "bad" })); assert.throws(() => leadCaptureSchema.parse({ ...leadInput, honeypot: "filled" })); });
-test("lead status graph keeps conversion system-derived", () => { assert.equal(canChangeLeadStatus("NEW", "CONTACTED"), true); assert.equal(canChangeLeadStatus("NEW", "CONVERTED"), false); assert.equal(canChangeLeadStatus("CONVERTED", "CLOSED"), false); assert.equal(isSystemDerivedLeadStatus("CONVERTED"), true); });
-test("lead implementation preserves ownership and claim boundaries", () => { const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); assert.match(service, /db\.transaction/); assert.match(service, /convertedClientProfileId/); assert.match(service, /convertedAssessmentId/); assert.doesNotMatch(service, /insert\(claims\)/); });
-test("lead audit metadata remains sanitized and staff-only", () => { const audit = fs.readFileSync(path.resolve("src/lib/staff/audit.ts"), "utf8"); const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); assert.match(audit, /leadStatus/); assert.match(service, /LEADS_MANAGE/); assert.match(service, /LEAD_NOTE_ADDED/); assert.doesNotMatch(service, /metadata:.*body/); });
-test("lead migration is additive and follows migration 0016", () => { const migration = fs.readFileSync(path.resolve("drizzle/0017_tranquil_norrin_radd.sql"), "utf8"); assert.match(migration, /CREATE TABLE "eligibility_leads"/); assert.match(migration, /eligibility_lead_conversion_tokens/); assert.match(migration, /eligibility_lead_notes/); assert.equal(fs.existsSync(path.resolve("drizzle/0016_orange_mesmero.sql")), true); });
+const leadInput = {
+  firstName: "A",
+  email: "RENTER@example.com",
+  preferredContactMethod: "email",
+  serviceContactConsent: "yes",
+  associationKey: "123456789012345678901234",
+  assessment: {
+    version: 1,
+    status: "complete",
+    currentStepId: "review",
+    answers: {},
+    startedAt: null,
+  },
+};
+test("lead references are opaque and formatted safely", () => {
+  const refs = new Set(Array.from({ length: 100 }, createLeadReference));
+  assert.equal(refs.size, 100);
+  for (const ref of refs) assert.match(ref, LEAD_REFERENCE_PATTERN);
+});
+test("lead capture requires service consent and defaults marketing to false", () => {
+  const parsed = leadCaptureSchema.parse(leadInput);
+  assert.equal(parsed.email, "renter@example.com");
+  assert.equal(parsed.marketingConsent, false);
+  assert.throws(() =>
+    leadCaptureSchema.parse({ ...leadInput, serviceContactConsent: undefined }),
+  );
+});
+test("lead capture rejects malformed contact details and honeypots", () => {
+  assert.throws(() => leadCaptureSchema.parse({ ...leadInput, email: "bad" }));
+  assert.throws(() =>
+    leadCaptureSchema.parse({ ...leadInput, honeypot: "filled" }),
+  );
+});
+test("lead status graph keeps conversion system-derived", () => {
+  assert.equal(canChangeLeadStatus("NEW", "CONTACTED"), true);
+  assert.equal(canChangeLeadStatus("NEW", "CONVERTED"), false);
+  assert.equal(canChangeLeadStatus("CONVERTED", "CLOSED"), false);
+  assert.equal(isSystemDerivedLeadStatus("CONVERTED"), true);
+});
+test("lead implementation preserves ownership and claim boundaries", () => {
+  const service = fs.readFileSync(
+    path.resolve("src/lib/leads/service.ts"),
+    "utf8",
+  );
+  assert.match(service, /db\.transaction/);
+  assert.match(service, /convertedClientProfileId/);
+  assert.match(service, /convertedAssessmentId/);
+  assert.doesNotMatch(service, /insert\(claims\)/);
+});
+test("lead audit metadata remains sanitized and staff-only", () => {
+  const audit = fs.readFileSync(path.resolve("src/lib/staff/audit.ts"), "utf8");
+  const service = fs.readFileSync(
+    path.resolve("src/lib/leads/service.ts"),
+    "utf8",
+  );
+  assert.match(audit, /leadStatus/);
+  assert.match(service, /LEADS_MANAGE/);
+  assert.match(service, /LEAD_NOTE_ADDED/);
+  assert.doesNotMatch(service, /metadata:.*body/);
+});
+test("lead migration is additive and follows migration 0016", () => {
+  const migration = fs.readFileSync(
+    path.resolve("drizzle/0017_tranquil_norrin_radd.sql"),
+    "utf8",
+  );
+  assert.match(migration, /CREATE TABLE "eligibility_leads"/);
+  assert.match(migration, /eligibility_lead_conversion_tokens/);
+  assert.match(migration, /eligibility_lead_notes/);
+  assert.equal(
+    fs.existsSync(path.resolve("drizzle/0016_orange_mesmero.sql")),
+    true,
+  );
+});
 
-const validProfile = { firstName: "  Ada  ", lastName: "  Lovelace ", phone: "07700 900123", bio: "Tenant seeking clear written updates.", addressLine1: "  1 Example Road ", addressLine2: "", city: " Newcastle-under-Lyme ", region: " Staffordshire ", postcode: " ST5 1AA ", country: " United Kingdom ", preferredContactMethod: "email" as const, preferredContactTime: "afternoon" as const, preferredContactTimeNote: "" };
+const validProfile = {
+  firstName: "  Ada  ",
+  lastName: "  Lovelace ",
+  phone: "07700 900123",
+  bio: "Tenant seeking clear written updates.",
+  addressLine1: "  1 Example Road ",
+  addressLine2: "",
+  city: " Newcastle-under-Lyme ",
+  region: " Staffordshire ",
+  postcode: " ST5 1AA ",
+  country: " United Kingdom ",
+  preferredContactMethod: "email" as const,
+  preferredContactTime: "afternoon" as const,
+  preferredContactTimeNote: "",
+};
 
 test("custom location accepts canonical UK place names and preserves the predefined route", () => {
   const jurisdiction = getQuestionById("jurisdiction");
   const customLocation = getQuestionById("custom_location");
   assert.ok(jurisdiction && customLocation);
-  assert.deepEqual(validateQuestionAnswer(jurisdiction, "england", { jurisdiction: "england" }), { valid: true });
-  assert.deepEqual(validateQuestionAnswer(customLocation, "Newcastle-under-Lyme", { jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" }), { valid: true });
-  for (const location of ["St. Ives", "King's Lynn", "Bishop's-Stortford", "New Town"]) assert.equal(customLocationPattern.test(location), true);
+  assert.deepEqual(
+    validateQuestionAnswer(jurisdiction, "england", {
+      jurisdiction: "england",
+    }),
+    { valid: true },
+  );
+  assert.deepEqual(
+    validateQuestionAnswer(customLocation, "Newcastle-under-Lyme", {
+      jurisdiction: "custom",
+      custom_location: "Newcastle-under-Lyme",
+    }),
+    { valid: true },
+  );
+  for (const location of [
+    "St. Ives",
+    "King's Lynn",
+    "Bishop's-Stortford",
+    "New Town",
+  ])
+    assert.equal(customLocationPattern.test(location), true);
 });
 
 test("custom location validation and canonicalisation reject unsafe or out-of-range values", () => {
   const customLocation = getQuestionById("custom_location");
   assert.ok(customLocation);
-  assert.equal(normalizeCustomLocation("  Newcastle   under-Lyme  "), "Newcastle under-Lyme");
-  assert.equal(validateQuestionAnswer(customLocation, "A", { jurisdiction: "custom", custom_location: "A" }).valid, false);
-  assert.equal(validateQuestionAnswer(customLocation, "A".repeat(121), { jurisdiction: "custom", custom_location: "A".repeat(121) }).valid, false);
-  assert.equal(validateQuestionAnswer(customLocation, "Newcastle 1", { jurisdiction: "custom", custom_location: "Newcastle 1" }).valid, false);
+  assert.equal(
+    normalizeCustomLocation("  Newcastle   under-Lyme  "),
+    "Newcastle under-Lyme",
+  );
+  assert.equal(
+    validateQuestionAnswer(customLocation, "A", {
+      jurisdiction: "custom",
+      custom_location: "A",
+    }).valid,
+    false,
+  );
+  assert.equal(
+    validateQuestionAnswer(customLocation, "A".repeat(121), {
+      jurisdiction: "custom",
+      custom_location: "A".repeat(121),
+    }).valid,
+    false,
+  );
+  assert.equal(
+    validateQuestionAnswer(customLocation, "Newcastle 1", {
+      jurisdiction: "custom",
+      custom_location: "Newcastle 1",
+    }).valid,
+    false,
+  );
 });
 
 test("custom location is required only for the other-location route and stale values are pruned", () => {
-  assert.equal(assessmentPayloadSchema.safeParse({ version: 1, status: "in-progress", currentStepId: "custom_location", answers: { jurisdiction: "custom" }, startedAt: null }).success, false);
-  assert.equal(assessmentPayloadSchema.safeParse({ version: 1, status: "in-progress", currentStepId: "custom_location", answers: { jurisdiction: "custom", custom_location: "  Newcastle-under-Lyme  " }, startedAt: null }).success, true);
-  assert.deepEqual(pruneHiddenAnswers({ jurisdiction: "england", custom_location: "Newcastle-under-Lyme" }), { jurisdiction: "england" });
-  assert.deepEqual(pruneHiddenAnswers({ jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" }), { jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" });
+  assert.equal(
+    assessmentPayloadSchema.safeParse({
+      version: 1,
+      status: "in-progress",
+      currentStepId: "custom_location",
+      answers: { jurisdiction: "custom" },
+      startedAt: null,
+    }).success,
+    false,
+  );
+  assert.equal(
+    assessmentPayloadSchema.safeParse({
+      version: 1,
+      status: "in-progress",
+      currentStepId: "custom_location",
+      answers: {
+        jurisdiction: "custom",
+        custom_location: "  Newcastle-under-Lyme  ",
+      },
+      startedAt: null,
+    }).success,
+    true,
+  );
+  assert.deepEqual(
+    pruneHiddenAnswers({
+      jurisdiction: "england",
+      custom_location: "Newcastle-under-Lyme",
+    }),
+    { jurisdiction: "england" },
+  );
+  assert.deepEqual(
+    pruneHiddenAnswers({
+      jurisdiction: "custom",
+      custom_location: "Newcastle-under-Lyme",
+    }),
+    { jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" },
+  );
 });
 
 test("custom location is rendered as a professional review value and never as a profile address", () => {
-  const review = fs.readFileSync(path.resolve("src/components/eligibility/eligibility-review.tsx"), "utf8");
-  const assessment = fs.readFileSync(path.resolve("src/components/eligibility/eligibility-assessment.tsx"), "utf8");
-  const profileActions = fs.readFileSync(path.resolve("src/app/account/profile/actions.ts"), "utf8");
+  const review = fs.readFileSync(
+    path.resolve("src/components/eligibility/eligibility-review.tsx"),
+    "utf8",
+  );
+  const assessment = fs.readFileSync(
+    path.resolve("src/components/eligibility/eligibility-assessment.tsx"),
+    "utf8",
+  );
+  const profileActions = fs.readFileSync(
+    path.resolve("src/app/account/profile/actions.ts"),
+    "utf8",
+  );
   assert.match(review, /Custom — \$\{String\(answers\.custom_location/);
   assert.match(assessment, /custom_location: normalizeCustomLocation/);
   assert.doesNotMatch(profileActions, /custom_location|jurisdiction/);
-  assert.equal(getReviewQuestions({ jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" }, ["jurisdiction", "custom_location"]).some((question) => question.id === "custom_location"), true);
+  assert.equal(
+    getReviewQuestions(
+      { jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" },
+      ["jurisdiction", "custom_location"],
+    ).some((question) => question.id === "custom_location"),
+    true,
+  );
 });
 
 test("profile validation normalises presentation fields without treating contact details as verified identity", () => {
@@ -886,27 +1832,79 @@ test("profile validation normalises presentation fields without treating contact
   assert.equal(parsed.phone, "+447700900123");
   assert.equal(parsed.city, "Newcastle-under-Lyme");
   assert.equal(normalisePhone("0044 7700 900123"), "+447700900123");
-  const form = fs.readFileSync(path.resolve("src/components/account/client-profile-form.tsx"), "utf8");
+  const form = fs.readFileSync(
+    path.resolve("src/components/account/client-profile-form.tsx"),
+    "utf8",
+  );
   assert.match(form, /Verified account email/);
   assert.match(form, /managed and verified by Clerk/);
   assert.match(form, /Not verified/);
 });
 
 test("profile validation bounds bio, address and contact preference values", () => {
-  assert.equal(profileSchema.safeParse({ ...validProfile, bio: "" }).success, true);
-  assert.equal(profileSchema.safeParse({ ...validProfile, bio: "<strong>Unsafe</strong>" }).success, false);
-  assert.equal(profileSchema.safeParse({ ...validProfile, bio: "a".repeat(501) }).success, false);
-  assert.equal(profileSchema.safeParse({ ...validProfile, phone: "123", preferredContactMethod: "phone" }).success, false);
-  assert.equal(profileSchema.safeParse({ ...validProfile, preferredContactMethod: "carrier-pigeon" }).success, false);
-  assert.equal(profileSchema.safeParse({ ...validProfile, preferredContactTime: "custom", preferredContactTimeNote: "  Weekdays after 17:00  " }).data?.preferredContactTimeNote, "Weekdays after 17:00");
-  assert.equal(profileSchema.safeParse({ ...validProfile, preferredContactTime: "custom", preferredContactTimeNote: "" }).success, false);
+  assert.equal(
+    profileSchema.safeParse({ ...validProfile, bio: "" }).success,
+    true,
+  );
+  assert.equal(
+    profileSchema.safeParse({ ...validProfile, bio: "<strong>Unsafe</strong>" })
+      .success,
+    false,
+  );
+  assert.equal(
+    profileSchema.safeParse({ ...validProfile, bio: "a".repeat(501) }).success,
+    false,
+  );
+  assert.equal(
+    profileSchema.safeParse({
+      ...validProfile,
+      phone: "123",
+      preferredContactMethod: "phone",
+    }).success,
+    false,
+  );
+  assert.equal(
+    profileSchema.safeParse({
+      ...validProfile,
+      preferredContactMethod: "carrier-pigeon",
+    }).success,
+    false,
+  );
+  assert.equal(
+    profileSchema.safeParse({
+      ...validProfile,
+      preferredContactTime: "custom",
+      preferredContactTimeNote: "  Weekdays after 17:00  ",
+    }).data?.preferredContactTimeNote,
+    "Weekdays after 17:00",
+  );
+  assert.equal(
+    profileSchema.safeParse({
+      ...validProfile,
+      preferredContactTime: "custom",
+      preferredContactTimeNote: "",
+    }).success,
+    false,
+  );
 });
 
 test("profile ownership and lead conversion preserve the authenticated profile boundary", () => {
-  const repository = fs.readFileSync(path.resolve("src/lib/clients/repository.ts"), "utf8");
-  const actions = fs.readFileSync(path.resolve("src/app/account/profile/actions.ts"), "utf8");
-  const onboarding = fs.readFileSync(path.resolve("src/app/account/onboarding/actions.ts"), "utf8");
-  const leadService = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8");
+  const repository = fs.readFileSync(
+    path.resolve("src/lib/clients/repository.ts"),
+    "utf8",
+  );
+  const actions = fs.readFileSync(
+    path.resolve("src/app/account/profile/actions.ts"),
+    "utf8",
+  );
+  const onboarding = fs.readFileSync(
+    path.resolve("src/app/account/onboarding/actions.ts"),
+    "utf8",
+  );
+  const leadService = fs.readFileSync(
+    path.resolve("src/lib/leads/service.ts"),
+    "utf8",
+  );
   assert.match(actions, /auth\(\)/);
   assert.match(actions, /updateClientProfileForClient\(userId/);
   assert.doesNotMatch(actions, /client_profile_id|clientProfileId/);
@@ -914,23 +1912,59 @@ test("profile ownership and lead conversion preserve the authenticated profile b
   assert.match(repository, /bio: existing\.bio/);
   assert.match(repository, /addressLine1: existing\.addressLine1/);
   assert.match(onboarding, /upsertClientProfile\(userId/);
-  assert.match(leadService, /where\(eq\(clientProfiles\.clerkUserId, clerkUserId\)\)/);
+  assert.match(
+    leadService,
+    /where\(eq\(clientProfiles\.clerkUserId, clerkUserId\)\)/,
+  );
   assert.doesNotMatch(leadService, /update\(clientProfiles\)/);
   assert.doesNotMatch(leadService, /insert\(claims\)/);
 });
 
 test("profile sharing rejects unknown fields and keeps avatars and street addresses private", () => {
-  assert.equal(profileShareSchema.safeParse({ selectedFields: ["first_name", "bio"], duration: "24h" }).success, true);
-  assert.equal(profileShareSchema.safeParse({ selectedFields: ["avatar"], duration: "24h" }).success, false);
-  assert.equal(profileShareSchema.safeParse({ selectedFields: ["addressLine1"], duration: "24h" }).success, false);
-  assert.equal(profileShareSchema.safeParse({ selectedFields: ["first_name"], duration: "forever" }).success, false);
-  const form = fs.readFileSync(path.resolve("src/components/account/client-profile-form.tsx"), "utf8");
-  assert.match(form, /Your profile image, address, claims and assessments are never included/);
+  assert.equal(
+    profileShareSchema.safeParse({
+      selectedFields: ["first_name", "bio"],
+      duration: "24h",
+    }).success,
+    true,
+  );
+  assert.equal(
+    profileShareSchema.safeParse({
+      selectedFields: ["avatar"],
+      duration: "24h",
+    }).success,
+    false,
+  );
+  assert.equal(
+    profileShareSchema.safeParse({
+      selectedFields: ["addressLine1"],
+      duration: "24h",
+    }).success,
+    false,
+  );
+  assert.equal(
+    profileShareSchema.safeParse({
+      selectedFields: ["first_name"],
+      duration: "forever",
+    }).success,
+    false,
+  );
+  const form = fs.readFileSync(
+    path.resolve("src/components/account/client-profile-form.tsx"),
+    "utf8",
+  );
+  assert.match(
+    form,
+    /Your profile image, address, claims and assessments are never included/,
+  );
   assert.doesNotMatch(form, /\["avatar", "Profile photo"\]/);
 });
 
 test("profile share service uses opaque 256-bit tokens, hash-only lookup, expiry and owner-scoped revocation", () => {
-  const shares = fs.readFileSync(path.resolve("src/lib/clients/shares.ts"), "utf8");
+  const shares = fs.readFileSync(
+    path.resolve("src/lib/clients/shares.ts"),
+    "utf8",
+  );
   assert.match(shares, /crypto\.randomBytes\(32\)\.toString\("base64url"\)/);
   assert.match(shares, /createHash\("sha256"\)/);
   assert.match(shares, /tokenHash: tokenHash\(token\)/);
@@ -939,52 +1973,249 @@ test("profile share service uses opaque 256-bit tokens, hash-only lookup, expiry
   assert.match(shares, /"7d": 7 \* 24 \* 60 \* 60_000/);
   assert.match(shares, /gt\(clientProfileShares\.expiresAt, new Date\(\)\)/);
   assert.match(shares, /isNull\(clientProfileShares\.revokedAt\)/);
-  assert.match(shares, /eq\(clientProfileShares\.clientProfileId, profile\.id\)/);
+  assert.match(
+    shares,
+    /eq\(clientProfileShares\.clientProfileId, profile\.id\)/,
+  );
   assert.doesNotMatch(shares, /token: clientProfileShares/);
   assert.doesNotMatch(shares, /clerkUserId.*return/);
 });
 
 test("profile completion has four deterministic sections and does not require optional bio or avatar", () => {
-  const repository = fs.readFileSync(path.resolve("src/lib/clients/repository.ts"), "utf8");
+  const repository = fs.readFileSync(
+    path.resolve("src/lib/clients/repository.ts"),
+    "utf8",
+  );
   assert.match(repository, /total: 4/);
-  assert.match(repository, /Boolean\(profile\.firstName && profile\.lastName\)/);
+  assert.match(
+    repository,
+    /Boolean\(profile\.firstName && profile\.lastName\)/,
+  );
   assert.match(repository, /Boolean\(profile\.phone\)/);
-  assert.match(repository, /Boolean\(profile\.city \|\| profile\.addressLine1\)/);
+  assert.match(
+    repository,
+    /Boolean\(profile\.city \|\| profile\.addressLine1\)/,
+  );
   assert.doesNotMatch(repository, /profile\.bio|profile\.image/);
 });
 
 test("public profile shares have a strict allow-list and noindex boundary", () => {
-  const page = fs.readFileSync(path.resolve("src/app/profile/share/[token]/page.tsx"), "utf8");
+  const page = fs.readFileSync(
+    path.resolve("src/app/profile/share/[token]/page.tsx"),
+    "utf8",
+  );
   const sitemap = fs.readFileSync(path.resolve("src/app/sitemap.ts"), "utf8");
   assert.match(page, /robots: \{ index: false, follow: false \}/);
-  for (const field of ["first_name", "last_name", "bio", "phone", "city_region"]) assert.match(page, new RegExp(`fields\\.has\\("${field}"\\)`));
-  assert.doesNotMatch(page, /addressLine|postcode|claim|assessment|clerkUserId|clientProfileId/);
+  for (const field of [
+    "first_name",
+    "last_name",
+    "bio",
+    "phone",
+    "city_region",
+  ])
+    assert.match(page, new RegExp(`fields\\.has\\("${field}"\\)`));
+  assert.doesNotMatch(
+    page,
+    /addressLine|postcode|claim|assessment|clerkUserId|clientProfileId/,
+  );
   assert.doesNotMatch(sitemap, /profile\/share/);
 });
 
 test("share actions derive owner authority from Clerk and do not expose token hashes", () => {
-  const actions = fs.readFileSync(path.resolve("src/app/account/profile/share-actions.ts"), "utf8");
+  const actions = fs.readFileSync(
+    path.resolve("src/app/account/profile/share-actions.ts"),
+    "utf8",
+  );
   assert.match(actions, /const \{ userId \} = await auth\(\)/);
   assert.match(actions, /createProfileShare\(userId/);
   assert.match(actions, /revokeProfileShare\(userId, shareReference\)/);
   assert.doesNotMatch(actions, /tokenHash|clientProfileId|clerkUserId/);
 });
 
-const preAccountAssessment = { version: 1 as const, status: "complete" as const, currentStepId: "review", answers: { jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" }, outcomeId: "REVIEW_RECOMMENDED" as const, startedAt: null };
-const preAccountInput = { firstName: "Renter", lastName: "Example", preferredContactMethod: "email" as const, email: "renter@example.com", phone: "07700 900123", serviceContactConsent: "yes" as const, associationKey: "123456789012345678901234", assessment: preAccountAssessment };
-test("pre-account capture requires names, service consent and conditionally required contact details", () => { const parsed = preAccountAssessmentCaptureSchema.parse(preAccountInput); assert.equal(parsed.email, "renter@example.com"); assert.equal(parsed.phone, "+447700900123"); assert.equal(parsed.marketingConsent, false); assert.deepEqual(leadContactMethods, ["email", "call", "sms", "whatsapp"]); assert.throws(() => preAccountAssessmentCaptureSchema.parse({ ...preAccountInput, lastName: "" })); assert.throws(() => preAccountAssessmentCaptureSchema.parse({ ...preAccountInput, serviceContactConsent: undefined })); });
-test("pre-account contact methods require email for every submission and phone for call, messages and WhatsApp", () => { for (const method of ["call", "sms", "whatsapp"] as const) { assert.equal(preAccountContactSchema.safeParse({ ...preAccountInput, preferredContactMethod: method, email: "renter@example.com", phone: "07700 900123" }).success, true); assert.equal(preAccountContactSchema.safeParse({ ...preAccountInput, preferredContactMethod: method, email: "", phone: "07700 900123" }).success, false); assert.equal(preAccountContactSchema.safeParse({ ...preAccountInput, preferredContactMethod: method, email: "renter@example.com", phone: "" }).success, false); } assert.equal(preAccountContactSchema.safeParse({ ...preAccountInput, preferredContactMethod: "email", email: "renter@example.com", phone: "" }).success, true); assert.equal(preAccountContactSchema.safeParse({ ...preAccountInput, preferredContactMethod: "email", email: "", phone: "07700 900123" }).success, false); assert.equal(preAccountContactSchema.safeParse({ ...preAccountInput, preferredContactMethod: "carrier-pigeon" as never }).success, false); });
-test("pre-account capture rejects malformed contact data and incomplete assessments", () => { assert.throws(() => preAccountAssessmentCaptureSchema.parse({ ...preAccountInput, email: "invalid" })); assert.throws(() => preAccountAssessmentCaptureSchema.parse({ ...preAccountInput, phone: "123" })); assert.throws(() => preAccountAssessmentCaptureSchema.parse({ ...preAccountInput, assessment: { ...preAccountAssessment, status: "review" } })); });
-test("pre-account persistence derives outcome and keeps durable assessment separate from handoff", () => { const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); const schema = fs.readFileSync(path.resolve("src/lib/db/schema/leads.ts"), "utf8"); assert.match(service, /buildAssessmentOutcome\(assessment\.answers\)/); assert.match(service, /preAccountEligibilityAssessments/); assert.match(service, /db\.transaction/); assert.match(schema, /pre_account_eligibility_assessments/); assert.match(schema, /leadId:.*unique/); });
-test("pre-account conversion uses authenticated identity and durable snapshot", () => { const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); assert.match(service, /clientProfiles\.clerkUserId, clerkUserId/); assert.match(service, /row\.preAccount/); assert.match(service, /convertedClientProfileId/); assert.match(service, /convertedAssessmentId/); assert.match(service, /convertedAt/); assert.doesNotMatch(service, /where\(eq\(clientProfiles\.email/); });
-test("pre-account records are not exposed through the authenticated client assessment repository", () => { const repository = fs.readFileSync(path.resolve("src/lib/eligibility/persistence/repository.ts"), "utf8"); assert.match(repository, /eligibilityAssessments\.clientProfileId/); assert.doesNotMatch(repository, /preAccountEligibilityAssessments/); });
-test("pre-account admin visibility is planned around safe references and no raw identifiers", () => { const verifier = fs.readFileSync(path.resolve("scripts/verify-db.mjs"), "utf8"); const admin = fs.readFileSync(path.resolve("src/app/admin/assessments/page.tsx"), "utf8"); assert.match(verifier, /pre_account_eligibility_assessments/); assert.match(admin, /metadata.*robots/); assert.doesNotMatch(admin, /clerkUserId|clientProfileId/); });
-test("pre-account persistence never creates a client or claim", () => { const service = fs.readFileSync(path.resolve("src/lib/leads/service.ts"), "utf8"); assert.doesNotMatch(service, /insert\(clientProfiles\)/); assert.doesNotMatch(service, /insert\(claims\)/); assert.match(service, /insert\(preAccountEligibilityAssessments\)/); });
+const preAccountAssessment = {
+  version: 1 as const,
+  status: "complete" as const,
+  currentStepId: "review",
+  answers: { jurisdiction: "custom", custom_location: "Newcastle-under-Lyme" },
+  outcomeId: "REVIEW_RECOMMENDED" as const,
+  startedAt: null,
+};
+const preAccountInput = {
+  firstName: "Renter",
+  lastName: "Example",
+  preferredContactMethod: "email" as const,
+  email: "renter@example.com",
+  phone: "07700 900123",
+  serviceContactConsent: "yes" as const,
+  associationKey: "123456789012345678901234",
+  assessment: preAccountAssessment,
+};
+test("pre-account capture requires names, service consent and conditionally required contact details", () => {
+  const parsed = preAccountAssessmentCaptureSchema.parse(preAccountInput);
+  assert.equal(parsed.email, "renter@example.com");
+  assert.equal(parsed.phone, "+447700900123");
+  assert.equal(parsed.marketingConsent, false);
+  assert.deepEqual(leadContactMethods, ["email", "call", "sms", "whatsapp"]);
+  assert.throws(() =>
+    preAccountAssessmentCaptureSchema.parse({
+      ...preAccountInput,
+      lastName: "",
+    }),
+  );
+  assert.throws(() =>
+    preAccountAssessmentCaptureSchema.parse({
+      ...preAccountInput,
+      serviceContactConsent: undefined,
+    }),
+  );
+});
+test("pre-account contact methods require email for every submission and phone for call, messages and WhatsApp", () => {
+  for (const method of ["call", "sms", "whatsapp"] as const) {
+    assert.equal(
+      preAccountContactSchema.safeParse({
+        ...preAccountInput,
+        preferredContactMethod: method,
+        email: "renter@example.com",
+        phone: "07700 900123",
+      }).success,
+      true,
+    );
+    assert.equal(
+      preAccountContactSchema.safeParse({
+        ...preAccountInput,
+        preferredContactMethod: method,
+        email: "",
+        phone: "07700 900123",
+      }).success,
+      false,
+    );
+    assert.equal(
+      preAccountContactSchema.safeParse({
+        ...preAccountInput,
+        preferredContactMethod: method,
+        email: "renter@example.com",
+        phone: "",
+      }).success,
+      false,
+    );
+  }
+  assert.equal(
+    preAccountContactSchema.safeParse({
+      ...preAccountInput,
+      preferredContactMethod: "email",
+      email: "renter@example.com",
+      phone: "",
+    }).success,
+    true,
+  );
+  assert.equal(
+    preAccountContactSchema.safeParse({
+      ...preAccountInput,
+      preferredContactMethod: "email",
+      email: "",
+      phone: "07700 900123",
+    }).success,
+    false,
+  );
+  assert.equal(
+    preAccountContactSchema.safeParse({
+      ...preAccountInput,
+      preferredContactMethod: "carrier-pigeon" as never,
+    }).success,
+    false,
+  );
+});
+test("pre-account capture rejects malformed contact data and incomplete assessments", () => {
+  assert.throws(() =>
+    preAccountAssessmentCaptureSchema.parse({
+      ...preAccountInput,
+      email: "invalid",
+    }),
+  );
+  assert.throws(() =>
+    preAccountAssessmentCaptureSchema.parse({
+      ...preAccountInput,
+      phone: "123",
+    }),
+  );
+  assert.throws(() =>
+    preAccountAssessmentCaptureSchema.parse({
+      ...preAccountInput,
+      assessment: { ...preAccountAssessment, status: "review" },
+    }),
+  );
+});
+test("pre-account persistence derives outcome and keeps durable assessment separate from handoff", () => {
+  const service = fs.readFileSync(
+    path.resolve("src/lib/leads/service.ts"),
+    "utf8",
+  );
+  const schema = fs.readFileSync(
+    path.resolve("src/lib/db/schema/leads.ts"),
+    "utf8",
+  );
+  assert.match(service, /buildAssessmentOutcome\(assessment\.answers\)/);
+  assert.match(service, /preAccountEligibilityAssessments/);
+  assert.match(service, /db\.transaction/);
+  assert.match(schema, /pre_account_eligibility_assessments/);
+  assert.match(schema, /leadId:.*unique/);
+});
+test("pre-account conversion uses authenticated identity and durable snapshot", () => {
+  const service = fs.readFileSync(
+    path.resolve("src/lib/leads/service.ts"),
+    "utf8",
+  );
+  assert.match(service, /clientProfiles\.clerkUserId, clerkUserId/);
+  assert.match(service, /row\.preAccount/);
+  assert.match(service, /convertedClientProfileId/);
+  assert.match(service, /convertedAssessmentId/);
+  assert.match(service, /convertedAt/);
+  assert.doesNotMatch(service, /where\(eq\(clientProfiles\.email/);
+});
+test("pre-account records are not exposed through the authenticated client assessment repository", () => {
+  const repository = fs.readFileSync(
+    path.resolve("src/lib/eligibility/persistence/repository.ts"),
+    "utf8",
+  );
+  assert.match(repository, /eligibilityAssessments\.clientProfileId/);
+  assert.doesNotMatch(repository, /preAccountEligibilityAssessments/);
+});
+test("pre-account admin visibility is planned around safe references and no raw identifiers", () => {
+  const verifier = fs.readFileSync(
+    path.resolve("scripts/verify-db.mjs"),
+    "utf8",
+  );
+  const admin = fs.readFileSync(
+    path.resolve("src/app/admin/assessments/page.tsx"),
+    "utf8",
+  );
+  assert.match(verifier, /pre_account_eligibility_assessments/);
+  assert.match(admin, /metadata.*robots/);
+  assert.doesNotMatch(admin, /clerkUserId|clientProfileId/);
+});
+test("pre-account persistence never creates a client or claim", () => {
+  const service = fs.readFileSync(
+    path.resolve("src/lib/leads/service.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(service, /insert\(clientProfiles\)/);
+  assert.doesNotMatch(service, /insert\(claims\)/);
+  assert.match(service, /insert\(preAccountEligibilityAssessments\)/);
+});
 
 test("public header preserves authenticated identity across profile states", () => {
-  const header = fs.readFileSync(path.resolve("src/components/navigation/public-header.tsx"), "utf8");
-  const resolver = fs.readFileSync(path.resolve("src/lib/auth/public-header-identity.ts"), "utf8");
-  const shell = fs.readFileSync(path.resolve("src/components/layout/public-shell.tsx"), "utf8");
+  const header = fs.readFileSync(
+    path.resolve("src/components/navigation/public-header.tsx"),
+    "utf8",
+  );
+  const resolver = fs.readFileSync(
+    path.resolve("src/lib/auth/public-header-identity.ts"),
+    "utf8",
+  );
+  const shell = fs.readFileSync(
+    path.resolve("src/components/layout/public-shell.tsx"),
+    "utf8",
+  );
   assert.match(header, /identity\.isAuthenticated/);
   assert.match(header, /Sign in/);
   assert.match(header, /Complete account setup/);
@@ -1000,61 +2231,132 @@ test("public header preserves authenticated identity across profile states", () 
 });
 
 test("public header account navigation uses real private routes and avoids identity leakage", () => {
-  const header = fs.readFileSync(path.resolve("src/components/navigation/public-header.tsx"), "utf8");
-  const layout = fs.readFileSync(path.resolve("src/app/(public)/layout.tsx"), "utf8");
-  for (const route of ["/account", "/account/profile", "/account/assessments", "/account/claims", "/account/messages", "/account/notifications"]) assert.match(header, new RegExp(route.replaceAll("/", "\\/")));
+  const header = fs.readFileSync(
+    path.resolve("src/components/navigation/public-header.tsx"),
+    "utf8",
+  );
+  const layout = fs.readFileSync(
+    path.resolve("src/app/(public)/layout.tsx"),
+    "utf8",
+  );
+  for (const route of [
+    "/account",
+    "/account/profile",
+    "/account/assessments",
+    "/account/claims",
+    "/account/messages",
+    "/account/notifications",
+  ])
+    assert.match(header, new RegExp(route.replaceAll("/", "\\/")));
   assert.match(header, /aria-haspopup="menu"/);
   assert.match(header, /role="menuitem"/);
-  assert.doesNotMatch(header, /phone|address|clerkUserId|clientProfileId|assessmentsCount/);
+  assert.doesNotMatch(
+    header,
+    /phone|address|clerkUserId|clientProfileId|assessmentsCount/,
+  );
   assert.match(layout, /dynamic = "force-dynamic"/);
 });
 
 test("communications use a discriminated snapshot and deferred recipient model", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
-  assert.match(source, /mode: "SNAPSHOT"; recipientType: "PRE_ACCOUNT"/);
-  assert.match(source, /mode: "DEFERRED"; recipientType: "CLIENT" \| "STAFF"/);
-  assert.match(source, /recipientEmail: input\.recipient\.mode === "SNAPSHOT" \? normalizeEmailAddress/);
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  assert.match(source, /mode: "SNAPSHOT";\s+recipientType: "PRE_ACCOUNT"/);
+  assert.match(
+    source,
+    /mode: "DEFERRED";\s+recipientType: "CLIENT" \| "STAFF"/,
+  );
+  assert.match(
+    source,
+    /recipientEmail:\s+input\.recipient\.mode === "SNAPSHOT"/,
+  );
   assert.doesNotMatch(source, /recipientEmail: .*\|\| ""/);
 });
 
 test("pre-account assessment receipts retain their submitted snapshot email", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
-  assert.match(source, /recipientType: "PRE_ACCOUNT", recipientReference, email: recipientEmail/);
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /recipientType: "PRE_ACCOUNT",\s+recipientReference,\s+email: recipientEmail/,
+  );
   assert.match(source, /ASSESSMENT_RECEIPT:\$\{payload\.assessmentReference\}/);
 });
 
 test("deferred recipients resolve only at delivery and snapshot before provider send", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
-  assert.match(source, /record\.recipientEmail \? \{ ok: true as const, email: record\.recipientEmail \} : await resolveEmailRecipient/);
-  assert.match(source, /if \(!record\.recipientEmail\) await getDb\(\)\.update\(emailOutbox\)\.set\(\{ recipientEmail: resolved\.email/);
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /const resolved = record\.recipientEmail\s+\? \{ ok: true as const, email: record\.recipientEmail \}\s+: await resolveEmailRecipient/,
+  );
+  assert.match(
+    source,
+    /if \(!record\.recipientEmail\)\s+await getDb\(\)\s+\.update\(emailOutbox\)\s+\.set\(\{ recipientEmail: resolved\.email/,
+  );
   assert.match(source, /RECIPIENT_SUPPRESSED/);
 });
 
 test("communication email validation rejects malformed and header-injected snapshot recipients", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
   assert.match(source, /!emailPattern\.test\(email\) \|\| \/\[\\r\\n\]\//);
   assert.match(source, /throw new Error\("Invalid email recipient\."\)/);
 });
 
 test("email outbox dedupe is independent of recipient email", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
-  const claimsSource = fs.readFileSync(path.resolve("src/lib/claims/repository.ts"), "utf8");
-  const evidenceSource = fs.readFileSync(path.resolve("src/lib/admin/claims/workflow-service.ts"), "utf8");
-  assert.match(source, /onConflictDoNothing\(\{ target: emailOutbox\.dedupeKey \}\)/);
-  assert.match(claimsSource, /dedupeKey: `CLAIM_CREATED:\$\{claim\.claimReference\}`/);
-  assert.match(evidenceSource, /dedupeKey: `EVIDENCE_REQUESTED:\$\{result\.requirement\.requirementReference\}`/);
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  const claimsSource = fs.readFileSync(
+    path.resolve("src/lib/claims/repository.ts"),
+    "utf8",
+  );
+  const evidenceSource = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/workflow-service.ts"),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /onConflictDoNothing\(\{ target: emailOutbox\.dedupeKey \}\)/,
+  );
+  assert.match(
+    claimsSource,
+    /dedupeKey: `CLAIM_CREATED:\$\{claim\.claimReference\}`/,
+  );
+  assert.match(
+    evidenceSource,
+    /dedupeKey: `EVIDENCE_REQUESTED:\$\{result\.requirement\.requirementReference\}`/,
+  );
 });
 
 test("welcome is queued exactly on first profile creation, not profile edits", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/clients/repository.ts"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("src/lib/clients/repository.ts"),
+    "utf8",
+  );
   assert.match(source, /if \(!existing\) return db\.transaction/);
   assert.match(source, /event: "WELCOME"/);
   assert.match(source, /dedupeKey: `WELCOME:\$\{profile\.clientReference\}`/);
-  assert.match(source, /recipientType: "CLIENT", recipientReference: profile\.clientReference/);
+  assert.match(
+    source,
+    /recipientType: "CLIENT", recipientReference: profile\.clientReference/,
+  );
 });
 
 test("welcome email is a professional account email with a safe account CTA", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
   assert.match(source, /Welcome to Claims Bridge/);
   assert.match(source, /OPEN MY ACCOUNT/);
   assert.match(source, /Eligibility assessments and saved results/);
@@ -1062,36 +2364,63 @@ test("welcome email is a professional account email with a safe account CTA", ()
 });
 
 test("explicit claim creation queues a deferred client claim-created email in its transaction", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/claims/repository.ts"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("src/lib/claims/repository.ts"),
+    "utf8",
+  );
   assert.match(source, /db\.transaction\(async \(tx\)/);
   assert.match(source, /event: "CLAIM_CREATED"/);
-  assert.match(source, /recipientType: "CLIENT", recipientReference: profile\.clientReference/);
+  assert.match(
+    source,
+    /recipientType: "CLIENT", recipientReference: profile\.clientReference/,
+  );
   assert.match(source, /CLAIM_CREATED:\$\{claim\.claimReference\}/);
   assert.match(source, /createClaimNotificationInTransaction/);
 });
 
 test("assessment persistence cannot create a claim-created communication", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/eligibility/persistence/actions.ts"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("src/lib/eligibility/persistence/actions.ts"),
+    "utf8",
+  );
   assert.doesNotMatch(source, /event: "CLAIM_CREATED"/);
 });
 
 test("claim-created email uses a canonical secure claim route and safe language", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
-  assert.match(source, /\/account\/claims\/\$\{encodeURIComponent\(payload\.claimReference\)\}/);
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /\/account\/claims\/\$\{encodeURIComponent\(payload\.claimReference\)\}/,
+  );
   assert.match(source, /VIEW MY CLAIM/);
-  assert.match(source, /does not guarantee a legal or compensation outcome/);
+  assert.match(source, /does not\s+guarantee a legal or compensation outcome/);
 });
 
 test("client-facing evidence requests queue a deferred email in the staff workflow transaction", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/admin/claims/workflow-service.ts"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/workflow-service.ts"),
+    "utf8",
+  );
   assert.match(source, /event: "EVIDENCE_REQUESTED"/);
-  assert.match(source, /recipientType: "CLIENT", recipientReference: claim\.clientReference/);
-  assert.match(source, /EVIDENCE_REQUESTED:\$\{result\.requirement\.requirementReference\}/);
+  assert.match(
+    source,
+    /recipientType: "CLIENT", recipientReference: claim\.clientReference/,
+  );
+  assert.match(
+    source,
+    /EVIDENCE_REQUESTED:\$\{result\.requirement\.requirementReference\}/,
+  );
   assert.match(source, /if \(!result\.requirement\.clientVisible\) throw/);
 });
 
 test("evidence email contains only safe requested evidence details and secure upload direction", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
   assert.match(source, /VIEW EVIDENCE REQUEST/);
   assert.match(source, /do not reply with documents to this email/);
   assert.doesNotMatch(source, /storageKey/);
@@ -1099,22 +2428,33 @@ test("evidence email contains only safe requested evidence details and secure up
 });
 
 test("the three core templates provide subjects, preheaders, and text fallbacks", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
-  for (const event of ["WELCOME", "CLAIM_CREATED", "EVIDENCE_REQUESTED"]) assert.match(source, new RegExp(`case "${event}"`));
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  for (const event of ["WELCOME", "CLAIM_CREATED", "EVIDENCE_REQUESTED"])
+    assert.match(source, new RegExp(`case "${event}"`));
   assert.match(source, /preheader:/);
   assert.match(source, /text:/);
   assert.match(source, /Support: \$\{siteUrl\(\)\}\/contact/);
 });
 
 test("core communication registry centralizes subject, preheader, route, and dedupe policy", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/communications/registry.ts"), "utf8");
-  for (const event of ["WELCOME", "CLAIM_CREATED", "EVIDENCE_REQUESTED"]) assert.match(source, new RegExp(`${event}: client\\([^\\n]+subject:`));
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/registry.ts"),
+    "utf8",
+  );
+  for (const event of ["WELCOME", "CLAIM_CREATED", "EVIDENCE_REQUESTED"])
+    assert.match(source, new RegExp(`${event}: client\\([^\\n]+subject:`));
   assert.match(source, /"\/account"/);
   assert.match(source, /dedupe:/);
 });
 
 test("claim communication policy selects meaningful client-visible transitions only", () => {
-  const policy = fs.readFileSync(path.resolve("src/lib/communications/claim-status-policy.ts"), "utf8");
+  const policy = fs.readFileSync(
+    path.resolve("src/lib/communications/claim-status-policy.ts"),
+    "utf8",
+  );
   assert.match(policy, /INITIAL_REVIEW: \{ event: "CLAIM_STATUS_UPDATED"/);
   assert.match(policy, /EVIDENCE_REVIEW: \{ event: "CLAIM_STATUS_UPDATED"/);
   assert.match(policy, /COMPLETED: \{ event: "CLAIM_COMPLETED"/);
@@ -1123,66 +2463,191 @@ test("claim communication policy selects meaningful client-visible transitions o
 });
 
 test("claim status transitions enqueue deferred client email from durable history identity", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/claims/transitions.ts"), "utf8");
-  assert.match(source, /const policy = claimStatusCommunicationPolicy\[requestedStatus\]/);
+  const source = fs.readFileSync(
+    path.resolve("src/lib/claims/transitions.ts"),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /const policy = claimStatusCommunicationPolicy\[requestedStatus\]/,
+  );
   assert.match(source, /event: policy\.event/);
-  assert.match(source, /recipientType: "CLIENT", recipientReference: profile\.clientReference/);
+  assert.match(
+    source,
+    /recipientType: "CLIENT", recipientReference: profile\.clientReference/,
+  );
   assert.match(source, /dedupeKey: `CLAIM_STATUS:\$\{history\.id\}`/);
   assert.match(source, /createClaimNotificationInTransaction/);
 });
 
 test("completed claims use a dedicated event rather than a generic claim status email", () => {
-  const policy = fs.readFileSync(path.resolve("src/lib/communications/claim-status-policy.ts"), "utf8");
-  const email = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  const policy = fs.readFileSync(
+    path.resolve("src/lib/communications/claim-status-policy.ts"),
+    "utf8",
+  );
+  const email = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
   assert.match(policy, /COMPLETED: \{ event: "CLAIM_COMPLETED"/);
   assert.match(email, /case "CLAIM_COMPLETED"/);
-  assert.match(email, /does not by itself confirm a legal, payment, or compensation outcome/);
+  assert.match(
+    email,
+    /does not by itself confirm a legal, payment, or compensation outcome/,
+  );
   assert.doesNotMatch(email, /claim won|3x|compensation confirmed/i);
 });
 
 test("claim status emails use safe headings, canonical claim routes, and text fallbacks", () => {
-  const email = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  const email = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
   assert.match(email, /VIEW MY CLAIM/);
   assert.match(email, /VIEW CLAIM SUMMARY/);
-  assert.match(email, /\/account\/claims\/\$\{encodeURIComponent\(item\.claimReference\)\}/);
+  assert.match(
+    email,
+    /\/account\/claims\/\$\{encodeURIComponent\(item\.claimReference\)\}/,
+  );
   assert.match(email, /Next step: \$\{item\.nextStep\}/);
 });
 
 test("durably finalized document uploads queue one deferred document-received email", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/documents/service.ts"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("src/lib/documents/service.ts"),
+    "utf8",
+  );
   assert.match(source, /status: "FINALIZED", documentId: inserted\.id/);
   assert.match(source, /event: "DOCUMENT_RECEIVED"/);
-  assert.match(source, /recipientType: "CLIENT", recipientReference: profile\.clientReference/);
-  assert.match(source, /dedupeKey: `DOCUMENT_RECEIVED:\$\{inserted\.documentReference\}`/);
+  assert.match(
+    source,
+    /recipientType: "CLIENT", recipientReference: profile\.clientReference/,
+  );
+  assert.match(
+    source,
+    /dedupeKey: `DOCUMENT_RECEIVED:\$\{inserted\.documentReference\}`/,
+  );
 });
 
 test("document receipt wording confirms receipt without claiming approval", () => {
-  const email = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  const email = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
   assert.match(email, /We’ve received your document/);
-  assert.match(email, /Received does not mean approved, accepted, or verified for an outcome/);
+  assert.match(
+    email,
+    /Received does not mean approved, accepted, or verified for an outcome/,
+  );
   assert.match(email, /VIEW DOCUMENTS/);
   assert.match(email, /case "DOCUMENT_RECEIVED"/);
 });
 
 test("only replacement-requested document review creates a client action email", () => {
-  const source = fs.readFileSync(path.resolve("src/lib/documents/service.ts"), "utf8");
+  const source = fs.readFileSync(
+    path.resolve("src/lib/documents/service.ts"),
+    "utf8",
+  );
   assert.match(source, /if \(requestedStatus === "REPLACEMENT_REQUESTED"\)/);
   assert.match(source, /event: "DOCUMENT_ACTION_REQUIRED"/);
   assert.match(source, /Please provide a replacement or clearer copy/);
-  assert.match(source, /dedupeKey: `DOCUMENT_ACTION:\$\{updated\.id\}:REPLACEMENT_REQUESTED`/);
+  assert.match(
+    source,
+    /dedupeKey: `DOCUMENT_ACTION:\$\{updated\.id\}:REPLACEMENT_REQUESTED`/,
+  );
 });
 
 test("document action templates keep review internals out of client communications", () => {
-  const email = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  const email = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
   assert.match(email, /REVIEW DOCUMENT REQUEST/);
   assert.match(email, /does not include internal review notes/);
   assert.doesNotMatch(email, /storageKey|quarantine|malware|fraud/i);
 });
 
 test("claim and document registry entries centralize delivery metadata", () => {
-  const registry = fs.readFileSync(path.resolve("src/lib/communications/registry.ts"), "utf8");
-  for (const event of ["CLAIM_STATUS_UPDATED", "CLAIM_COMPLETED", "DOCUMENT_RECEIVED", "DOCUMENT_ACTION_REQUIRED"]) assert.match(registry, new RegExp(`${event}: client`));
+  const registry = fs.readFileSync(
+    path.resolve("src/lib/communications/registry.ts"),
+    "utf8",
+  );
+  for (const event of [
+    "CLAIM_STATUS_UPDATED",
+    "CLAIM_COMPLETED",
+    "DOCUMENT_RECEIVED",
+    "DOCUMENT_ACTION_REQUIRED",
+  ])
+    assert.match(registry, new RegExp(`${event}: client`));
   assert.match(registry, /CLAIM_STATUS:<history-reference>/);
   assert.match(registry, /DOCUMENT_RECEIVED:<document-reference>/);
   assert.match(registry, /DOCUMENT_ACTION:<document-status-event>/);
+});
+
+test("communication email renderer uses a readable dispatcher for every client template", () => {
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /export async function renderCommunicationEmail\(\s*input: CommunicationEmailInput\)/,
+  );
+  for (const event of [
+    "ASSESSMENT_RECEIVED",
+    "WELCOME",
+    "CLAIM_CREATED",
+    "EVIDENCE_REQUESTED",
+    "CLAIM_STATUS_UPDATED",
+    "CLAIM_COMPLETED",
+    "DOCUMENT_RECEIVED",
+    "DOCUMENT_ACTION_REQUIRED",
+    "ASSESSMENT_ATTACHED_TO_ACCOUNT",
+    "NEW_SECURE_MESSAGE",
+    "CLIENT_ACTION_REQUIRED",
+  ]) {
+    assert.match(source, new RegExp(`case "${event}"`));
+  }
+  assert.match(
+    source,
+    /default:\s+return unsupportedTemplate\(\);/,
+  );
+  assert.match(
+    source,
+    /function unsupportedTemplate\(\): never \{\s+throw new Error\("Email template is not implemented\."\)/,
+  );
+});
+
+test("communication email renderer is no longer represented as a compressed dispatcher line", () => {
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  const dispatcherLine = source
+    .split(/\r?\n/)
+    .find((line) =>
+      line.includes("export async function renderCommunicationEmail"),
+    );
+  assert.ok(dispatcherLine);
+  assert.ok(dispatcherLine.length < 120);
+  assert.match(source, /case "ASSESSMENT_RECEIVED": \{/);
+  assert.match(source, /case "CLIENT_ACTION_REQUIRED": \{/);
+});
+
+test("secure-message renderer keeps message content outside email output", () => {
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  const start = source.indexOf('case "NEW_SECURE_MESSAGE"');
+  const end = source.indexOf('case "CLIENT_ACTION_REQUIRED"');
+  const messageCase = source.slice(start, end);
+  const componentStart = source.indexOf("function SecureMessageEmail");
+  const componentEnd = source.indexOf("function ClientActionEmail");
+  const component = source.slice(componentStart, componentEnd);
+  assert.ok(start >= 0 && end > start);
+  assert.ok(componentStart >= 0 && componentEnd > componentStart);
+  assert.doesNotMatch(messageCase, /messageBody|payload\.body|message\.body/i);
+  assert.doesNotMatch(component, /messageBody|payload\.body|message\.body/i);
+  assert.match(component, /VIEW SECURE MESSAGE/);
 });
