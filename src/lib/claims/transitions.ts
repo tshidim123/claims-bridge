@@ -7,6 +7,10 @@ import { getTransitionTimeline } from "@/config/claim-tracking";
 import { claimStatusNotificationTypes } from "@/config/notifications";
 import { getDb } from "@/lib/db";
 import { claimStatusHistory, claimTimelineEvents, claims } from "@/lib/db/schema/claims";
+import { clientProfiles } from "@/lib/db/schema/client-profiles";
+import { emailOutbox } from "@/lib/db/schema/communications";
+import { buildEmailOutboxValues } from "@/lib/communications/email";
+import { claimStatusCommunicationPolicy } from "@/lib/communications/claim-status-policy";
 import { createClaimNotificationInTransaction } from "@/lib/notifications/repository";
 import type { StaffDbExecutor } from "@/lib/staff/audit";
 
@@ -34,7 +38,8 @@ export async function transitionClaimStatusInTransaction(executor: StaffDbExecut
 
   const history = (await executor.insert(claimStatusHistory).values({ claimId, fromStatus: current.status, toStatus: requestedStatus, eventType: "STATUS_CHANGED", actorType: options.actorType ?? "SYSTEM", createdAt: now }).returning({ id: claimStatusHistory.id }))[0];
 
-  const notificationType = claimStatusNotificationTypes[requestedStatus];
+  const policy = claimStatusCommunicationPolicy[requestedStatus];
+  const notificationType = policy?.notification ?? claimStatusNotificationTypes[requestedStatus];
   if (notificationType && history) {
     await createClaimNotificationInTransaction(executor, {
       claimId,
@@ -44,6 +49,11 @@ export async function transitionClaimStatusInTransaction(executor: StaffDbExecut
       sourceId: history.id,
       dedupeKey: `claim-status:${history.id}`,
     });
+  }
+
+  if (policy && history) {
+    const profile = (await executor.select({ clientReference: clientProfiles.clientReference }).from(clientProfiles).where(eq(clientProfiles.id, updated.clientProfileId)).limit(1))[0];
+    if (profile) await executor.insert(emailOutbox).values(buildEmailOutboxValues({ event: policy.event, recipient: { mode: "DEFERRED", recipientType: "CLIENT", recipientReference: profile.clientReference }, payload: { claimReference: updated.claimReference, heading: policy.heading, summary: policy.summary, nextStep: policy.nextStep, actionRequired: policy.actionRequired }, dedupeKey: `CLAIM_STATUS:${history.id}` })).onConflictDoNothing({ target: emailOutbox.dedupeKey });
   }
 
   const timeline = options.createTimelineEvent === false ? null : getTransitionTimeline(requestedStatus);

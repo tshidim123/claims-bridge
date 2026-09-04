@@ -7,7 +7,10 @@ import { DOWNLOAD_URL_EXPIRY_SECONDS, UPLOAD_URL_EXPIRY_SECONDS } from "@/config
 import { getClaimForClient } from "@/lib/claims/repository";
 import { getDb } from "@/lib/db";
 import { claimDocumentUploads, claimDocuments, claimEvidenceRequirements } from "@/lib/db/schema/evidence";
-import { claimTimelineEvents } from "@/lib/db/schema/claims";
+import { claimTimelineEvents, claims } from "@/lib/db/schema/claims";
+import { clientProfiles } from "@/lib/db/schema/client-profiles";
+import { emailOutbox } from "@/lib/db/schema/communications";
+import { buildEmailOutboxValues } from "@/lib/communications/email";
 import { createOpaqueDocumentReference, createOpaqueStorageKey, getPrivateObjectStorage } from "./storage";
 import { isR2Configured } from "./r2";
 import { detectDocumentMimeType, DocumentValidationError, isDocumentRequirementUploadable, validateUploadRequest } from "./validation";
@@ -51,6 +54,10 @@ export async function transitionDocumentStatusInTransaction(executor: DocumentDb
     : null;
   if (requestedStatus === "ACCEPTED") await executor.insert(claimTimelineEvents).values({ claimId, eventType: "DOCUMENT_ACCEPTED", title: "Document accepted for the case record", description: "A document has been accepted for the Claims Bridge case record.", visibility: "CLIENT", occurredAt: now, createdAt: now });
   if (["ACCEPTED", "REPLACEMENT_REQUESTED", "REJECTED"].includes(requestedStatus)) await createClaimNotificationInTransaction(executor, { claimId, type: "DOCUMENT_REVIEW_UPDATE", sourceType: "DOCUMENT_STATUS", sourceId: updated.id, dedupeKey: `document-review:${updated.id}:${requestedStatus}` });
+  if (requestedStatus === "REPLACEMENT_REQUESTED") {
+    const claim = (await executor.select({ claimReference: claims.claimReference, clientReference: clientProfiles.clientReference }).from(claims).innerJoin(clientProfiles, eq(clientProfiles.id, claims.clientProfileId)).where(eq(claims.id, claimId)).limit(1))[0];
+    if (claim) await executor.insert(emailOutbox).values(buildEmailOutboxValues({ event: "DOCUMENT_ACTION_REQUIRED", recipient: { mode: "DEFERRED", recipientType: "CLIENT", recipientReference: claim.clientReference }, payload: { claimReference: claim.claimReference, documentReference: current.documentReference ?? "document", title: current.displayName, reason: "Please provide a replacement or clearer copy so we can continue reviewing the requested information." }, dedupeKey: `DOCUMENT_ACTION:${updated.id}:REPLACEMENT_REQUESTED` })).onConflictDoNothing({ target: emailOutbox.dedupeKey });
+  }
   return { previous: current, updated, evidenceChange };
 }
 
@@ -188,6 +195,8 @@ export async function finalizeDocumentUpload(clerkUserId: string, claimReference
       if (requirement) await tx.update(claimEvidenceRequirements).set({ status: "UPLOADED", completedAt: null, updatedAt: now }).where(and(eq(claimEvidenceRequirements.id, requirement.id), eq(claimEvidenceRequirements.status, requirement.status)));
       await tx.insert(claimTimelineEvents).values({ claimId: owned.claim.id, eventType: "DOCUMENT_RECEIVED", title: "Document received", description: "A document has been received and its file type has been validated.", visibility: "CLIENT", occurredAt: now, createdAt: now });
       await createClaimNotificationInTransaction(tx, { claimId: owned.claim.id, type: "DOCUMENT_RECEIVED", sourceType: "DOCUMENT", sourceId: inserted.id, dedupeKey: `document-received:${inserted.id}` });
+      const profile = (await tx.select({ clientReference: clientProfiles.clientReference }).from(clientProfiles).where(eq(clientProfiles.id, owned.claim.clientProfileId)).limit(1))[0];
+      if (profile) await tx.insert(emailOutbox).values(buildEmailOutboxValues({ event: "DOCUMENT_RECEIVED", recipient: { mode: "DEFERRED", recipientType: "CLIENT", recipientReference: profile.clientReference }, payload: { claimReference, documentReference: inserted.documentReference ?? "document", title: inserted.displayName }, dedupeKey: `DOCUMENT_RECEIVED:${inserted.documentReference}` })).onConflictDoNothing({ target: emailOutbox.dedupeKey });
       await tx.update(claimDocumentUploads).set({ status: "FINALIZED", documentId: inserted.id, finalizedAt: now }).where(and(eq(claimDocumentUploads.id, claimed.id), eq(claimDocumentUploads.status, "FINALIZING")));
       return inserted;
     });

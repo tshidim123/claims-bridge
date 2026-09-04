@@ -1108,7 +1108,81 @@ test("the three core templates provide subjects, preheaders, and text fallbacks"
 
 test("core communication registry centralizes subject, preheader, route, and dedupe policy", () => {
   const source = fs.readFileSync(path.resolve("src/lib/communications/registry.ts"), "utf8");
-  for (const event of ["WELCOME", "CLAIM_CREATED", "EVIDENCE_REQUESTED"]) assert.match(source, new RegExp(`${event}: \{[^}]+subject:`));
-  assert.match(source, /destination: "\/account"/);
+  for (const event of ["WELCOME", "CLAIM_CREATED", "EVIDENCE_REQUESTED"]) assert.match(source, new RegExp(`${event}: client\\([^\\n]+subject:`));
+  assert.match(source, /"\/account"/);
   assert.match(source, /dedupe:/);
+});
+
+test("claim communication policy selects meaningful client-visible transitions only", () => {
+  const policy = fs.readFileSync(path.resolve("src/lib/communications/claim-status-policy.ts"), "utf8");
+  assert.match(policy, /INITIAL_REVIEW: \{ event: "CLAIM_STATUS_UPDATED"/);
+  assert.match(policy, /EVIDENCE_REVIEW: \{ event: "CLAIM_STATUS_UPDATED"/);
+  assert.match(policy, /COMPLETED: \{ event: "CLAIM_COMPLETED"/);
+  assert.match(policy, /EVIDENCE_COLLECTION: null/);
+  assert.match(policy, /AWAITING_THIRD_PARTY: null/);
+});
+
+test("claim status transitions enqueue deferred client email from durable history identity", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/claims/transitions.ts"), "utf8");
+  assert.match(source, /const policy = claimStatusCommunicationPolicy\[requestedStatus\]/);
+  assert.match(source, /event: policy\.event/);
+  assert.match(source, /recipientType: "CLIENT", recipientReference: profile\.clientReference/);
+  assert.match(source, /dedupeKey: `CLAIM_STATUS:\$\{history\.id\}`/);
+  assert.match(source, /createClaimNotificationInTransaction/);
+});
+
+test("completed claims use a dedicated event rather than a generic claim status email", () => {
+  const policy = fs.readFileSync(path.resolve("src/lib/communications/claim-status-policy.ts"), "utf8");
+  const email = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(policy, /COMPLETED: \{ event: "CLAIM_COMPLETED"/);
+  assert.match(email, /case "CLAIM_COMPLETED"/);
+  assert.match(email, /does not by itself confirm a legal, payment, or compensation outcome/);
+  assert.doesNotMatch(email, /claim won|3x|compensation confirmed/i);
+});
+
+test("claim status emails use safe headings, canonical claim routes, and text fallbacks", () => {
+  const email = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(email, /VIEW MY CLAIM/);
+  assert.match(email, /VIEW CLAIM SUMMARY/);
+  assert.match(email, /\/account\/claims\/\$\{encodeURIComponent\(item\.claimReference\)\}/);
+  assert.match(email, /Next step: \$\{item\.nextStep\}/);
+});
+
+test("durably finalized document uploads queue one deferred document-received email", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/documents/service.ts"), "utf8");
+  assert.match(source, /status: "FINALIZED", documentId: inserted\.id/);
+  assert.match(source, /event: "DOCUMENT_RECEIVED"/);
+  assert.match(source, /recipientType: "CLIENT", recipientReference: profile\.clientReference/);
+  assert.match(source, /dedupeKey: `DOCUMENT_RECEIVED:\$\{inserted\.documentReference\}`/);
+});
+
+test("document receipt wording confirms receipt without claiming approval", () => {
+  const email = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(email, /We’ve received your document/);
+  assert.match(email, /Received does not mean approved, accepted, or verified for an outcome/);
+  assert.match(email, /VIEW DOCUMENTS/);
+  assert.match(email, /case "DOCUMENT_RECEIVED"/);
+});
+
+test("only replacement-requested document review creates a client action email", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/documents/service.ts"), "utf8");
+  assert.match(source, /if \(requestedStatus === "REPLACEMENT_REQUESTED"\)/);
+  assert.match(source, /event: "DOCUMENT_ACTION_REQUIRED"/);
+  assert.match(source, /Please provide a replacement or clearer copy/);
+  assert.match(source, /dedupeKey: `DOCUMENT_ACTION:\$\{updated\.id\}:REPLACEMENT_REQUESTED`/);
+});
+
+test("document action templates keep review internals out of client communications", () => {
+  const email = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(email, /REVIEW DOCUMENT REQUEST/);
+  assert.match(email, /does not include internal review notes/);
+  assert.doesNotMatch(email, /storageKey|quarantine|malware|fraud/i);
+});
+
+test("claim and document registry entries centralize delivery metadata", () => {
+  const registry = fs.readFileSync(path.resolve("src/lib/communications/registry.ts"), "utf8");
+  for (const event of ["CLAIM_STATUS_UPDATED", "CLAIM_COMPLETED", "DOCUMENT_RECEIVED", "DOCUMENT_ACTION_REQUIRED"]) assert.match(registry, new RegExp(`${event}: client`));
+  assert.match(registry, /CLAIM_STATUS:<history-reference>/);
+  assert.match(registry, /DOCUMENT_RECEIVED:<document-reference>/);
+  assert.match(registry, /DOCUMENT_ACTION:<document-status-event>/);
 });
