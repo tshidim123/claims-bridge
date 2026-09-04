@@ -1,7 +1,8 @@
 "use server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { enqueueEmail } from "@/lib/communications/email";
 import { buildAssessmentOutcome } from "@/lib/eligibility/outcome";
+import { getClientProfileByClerkId } from "@/lib/clients/repository";
 import { createAnonymousHandoff, persistAssessmentForClient } from "./repository";
 import { assessmentPayloadSchema } from "./validation";
 
@@ -13,11 +14,10 @@ export async function secureAssessmentHandoff(payload: unknown) {
     if (!userId) return { kind: "handoff" as const, token: await createAnonymousHandoff(parsed.data) };
     try {
       const assessment = await persistAssessmentForClient(userId, parsed.data);
-      const user = await currentUser();
-      const email = user?.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)?.emailAddress;
-      if (email && parsed.data.status === "complete") {
+      const profile = await getClientProfileByClerkId(userId);
+      if (profile && parsed.data.status === "complete") {
         const outcome = buildAssessmentOutcome(parsed.data.answers);
-        await enqueueEmail("ASSESSMENT_RECEIVED", email, assessment.assessmentReference, { assessmentReference: assessment.assessmentReference, outcome: outcome.headline, explanation: outcome.explanation, evidence: outcome.evidence.map(({ label, description }) => ({ label, description })), continuationUrl: `${(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "")}/account/assessment` }, `ASSESSMENT_RECEIPT:${assessment.assessmentReference}`);
+        await enqueueEmail({ event: "ASSESSMENT_RECEIVED", recipient: { mode: "DEFERRED", recipientType: "CLIENT", recipientReference: profile.clientReference }, payload: { assessmentReference: assessment.assessmentReference, outcome: outcome.headline, explanation: outcome.explanation, evidence: outcome.evidence.map(({ label, description }) => ({ label, description })), continuationUrl: `${(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "")}/account/assessment` }, dedupeKey: `ASSESSMENT_RECEIPT:${assessment.assessmentReference}` });
       }
       return { kind: "saved" as const };
     } catch (error) {
