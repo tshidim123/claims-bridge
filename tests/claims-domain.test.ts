@@ -2445,7 +2445,7 @@ test("core communication registry centralizes subject, preheader, route, and ded
     "utf8",
   );
   for (const event of ["WELCOME", "CLAIM_CREATED", "EVIDENCE_REQUESTED"])
-    assert.match(source, new RegExp(`${event}: client\\([^\\n]+subject:`));
+    assert.match(source, new RegExp(`${event}: client\\([\\s\\S]*?subject:`));
   assert.match(source, /"\/account"/);
   assert.match(source, /dedupe:/);
 });
@@ -2608,10 +2608,7 @@ test("communication email renderer uses a readable dispatcher for every client t
   ]) {
     assert.match(source, new RegExp(`case "${event}"`));
   }
-  assert.match(
-    source,
-    /default:\s+return unsupportedTemplate\(\);/,
-  );
+  assert.match(source, /default:\s+return unsupportedTemplate\(\);/);
   assert.match(
     source,
     /function unsupportedTemplate\(\): never \{\s+throw new Error\("Email template is not implemented\."\)/,
@@ -2650,4 +2647,130 @@ test("secure-message renderer keeps message content outside email output", () =>
   assert.doesNotMatch(messageCase, /messageBody|payload\.body|message\.body/i);
   assert.doesNotMatch(component, /messageBody|payload\.body|message\.body/i);
   assert.match(component, /VIEW SECURE MESSAGE/);
+});
+
+test("lead conversion atomically queues one deferred assessment-attached communication", () => {
+  const source = fs.readFileSync(
+    path.resolve("src/lib/leads/service.ts"),
+    "utf8",
+  );
+  assert.match(source, /event: "ASSESSMENT_ATTACHED_TO_ACCOUNT"/);
+  assert.match(source, /recipientType: "CLIENT"/);
+  assert.match(source, /recipientReference: profile\.clientReference/);
+  assert.match(
+    source,
+    /dedupeKey: `ASSESSMENT_ATTACHED:\$\{attachedReference\}`/,
+  );
+  assert.match(
+    source,
+    /assessmentUrl: `\/account\/assessments\/\$\{encodeURIComponent\(attachedReference\)\}`/,
+  );
+  assert.match(source, /createNotification\(tx,/);
+  assert.doesNotMatch(source, /event: "CLAIM_CREATED"/);
+});
+
+test("staff-to-client messages queue a deferred private secure-message communication", () => {
+  const source = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/messaging-service.ts"),
+    "utf8",
+  );
+  assert.match(
+    source,
+    /const message = await sendClaimsBridgeMessageInTransaction/,
+  );
+  assert.match(source, /event: "NEW_SECURE_MESSAGE"/);
+  assert.match(source, /recipientType: "CLIENT"/);
+  assert.match(source, /recipientReference: claim\.clientReference/);
+  assert.match(source, /dedupeKey: `NEW_SECURE_MESSAGE:\$\{message\.id\}`/);
+  assert.match(
+    source,
+    /messagesUrl: `\/account\/claims\/\$\{encodeURIComponent\(claimReference\)\}\/messages`/,
+  );
+  const outboxStart = source.indexOf('event: "NEW_SECURE_MESSAGE"');
+  const outboxEnd = source.indexOf("await recordStaffAuditEvent", outboxStart);
+  assert.ok(outboxStart >= 0 && outboxEnd > outboxStart);
+  assert.doesNotMatch(source.slice(outboxStart, outboxEnd), /body:/);
+});
+
+test("client-originated and internal messages do not queue a client secure-message email", () => {
+  const clientSource = fs.readFileSync(
+    path.resolve("src/lib/messaging/repository.ts"),
+    "utf8",
+  );
+  const adminSource = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/messaging-service.ts"),
+    "utf8",
+  );
+  const clientMessageStart = clientSource.indexOf(
+    "export async function createClientMessageForClaim",
+  );
+  const clientMessageEnd = clientSource.indexOf(
+    "export async function sendClaimsBridgeMessageInTransaction",
+  );
+  assert.doesNotMatch(
+    clientSource.slice(clientMessageStart, clientMessageEnd),
+    /NEW_SECURE_MESSAGE/,
+  );
+  assert.match(adminSource, /senderType: "CLAIMS_BRIDGE"/);
+});
+
+test("client action creation queues one deferred action-required email and notification", () => {
+  const source = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/action-service.ts"),
+    "utf8",
+  );
+  assert.match(source, /event: "CLIENT_ACTION_REQUIRED"/);
+  assert.match(source, /recipientType: "CLIENT"/);
+  assert.match(source, /recipientReference: claim\.clientReference/);
+  assert.match(
+    source,
+    /dedupeKey: `CLIENT_ACTION_REQUIRED:\$\{action\.actionReference\}`/,
+  );
+  assert.match(source, /createClaimNotificationInTransaction/);
+  assert.match(
+    source,
+    /dedupeKey: `client-action-required:\$\{action\.actionReference\}`/,
+  );
+});
+
+test("action email payload uses client-safe fields and a real due date only when present", () => {
+  const source = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/action-service.ts"),
+    "utf8",
+  );
+  assert.match(source, /new Intl\.DateTimeFormat\("en-GB"/);
+  assert.match(source, /const dueDate = action\.dueAt\s+\?/);
+  assert.match(
+    source,
+    /title: action\.title,\s+description: action\.description,\s+dueDate/,
+  );
+  assert.doesNotMatch(
+    source,
+    /createdByStaffUserId.*payload|priority.*payload/,
+  );
+});
+
+test("final client lifecycle registry entries are service communications with controlled routes", () => {
+  const registry = fs.readFileSync(
+    path.resolve("src/lib/communications/registry.ts"),
+    "utf8",
+  );
+  const notifications = fs.readFileSync(
+    path.resolve("src/config/notifications.ts"),
+    "utf8",
+  );
+  for (const event of [
+    "ASSESSMENT_ATTACHED_TO_ACCOUNT",
+    "NEW_SECURE_MESSAGE",
+    "CLIENT_ACTION_REQUIRED",
+  ]) {
+    assert.match(registry, new RegExp(`${event}: client`));
+  }
+  assert.match(registry, /ASSESSMENT_ATTACHED:<assessment-reference>/);
+  assert.match(registry, /NEW_SECURE_MESSAGE:<message-identity>/);
+  assert.match(registry, /CLIENT_ACTION_REQUIRED:<action-reference>/);
+  assert.match(
+    notifications,
+    /\/account\/assessments\/\$\{encodeURIComponent\(actionReference\)\}/,
+  );
 });

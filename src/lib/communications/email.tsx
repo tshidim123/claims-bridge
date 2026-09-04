@@ -66,7 +66,6 @@ export type AssessmentAttachedPayload = {
 };
 export type SecureMessagePayload = {
   claimReference: string;
-  messageReference: string;
   messagesUrl?: string;
 };
 export type ClientActionPayload = {
