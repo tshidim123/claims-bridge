@@ -34,6 +34,7 @@ const staff = (
   preference: string,
   destination: string,
   urgency: EventDefinition["urgency"],
+  extra: Partial<EventDefinition> = {},
 ): EventDefinition => ({
   audience: "STAFF",
   template,
@@ -43,6 +44,7 @@ const staff = (
   channels: ["EMAIL", "IN_APP"],
   required: false,
   urgency,
+  ...extra,
 });
 
 export const communicationEvents = {
@@ -183,43 +185,82 @@ export const communicationEvents = {
     "ASSESSMENTS",
     "/admin/assessments",
     "important",
+    {
+      subject: "New Claims Bridge eligibility assessment",
+      preheader: "A new signed-out eligibility assessment has been submitted.",
+      dedupe: "STAFF_NEW_PRE_ACCOUNT_ASSESSMENT:<assessment>:<staff>",
+    },
   ),
   NEW_AUTHENTICATED_ASSESSMENT: staff(
     "STAFF_ASSESSMENT",
     "ASSESSMENTS",
     "/admin/assessments",
     "important",
+    {
+      subject: "New authenticated eligibility assessment",
+      preheader: "A signed-in client completed a new eligibility assessment.",
+      dedupe: "STAFF_NEW_AUTHENTICATED_ASSESSMENT:<assessment>:<staff>",
+    },
   ),
-  NEW_CLAIM: staff("STAFF_CLAIM", "CLAIMS", "/admin/claims", "important"),
+  NEW_CLAIM: staff("STAFF_CLAIM", "CLAIMS", "/admin/claims", "important", {
+    subject: "New Claims Bridge claim",
+    preheader: "A client has explicitly created a claim.",
+    dedupe: "STAFF_NEW_CLAIM:<claim>:<staff>",
+  }),
   CLIENT_MESSAGE_RECEIVED: staff(
     "STAFF_MESSAGE",
     "MESSAGES",
     "/admin/messages",
     "important",
+    {
+      subject: "New client secure message",
+      preheader: "A client has sent a new secure message.",
+      dedupe: "STAFF_CLIENT_MESSAGE:<message>:<staff>",
+    },
   ),
   EVIDENCE_UPLOADED: staff(
     "STAFF_EVIDENCE",
     "EVIDENCE",
     "/admin/evidence",
     "normal",
+    {
+      subject: "New evidence uploaded",
+      preheader: "A client document is ready for operational review.",
+      dedupe: "STAFF_EVIDENCE_UPLOADED:<document>:<staff>",
+    },
   ),
   CLIENT_ACTION_COMPLETED: staff(
     "STAFF_ACTION",
     "CLAIMS",
     "/admin/client-actions",
     "normal",
+    {
+      subject: "Client action completed",
+      preheader: "A client has completed a requested action.",
+      dedupe: "STAFF_CLIENT_ACTION_COMPLETED:<action>:<staff>",
+    },
   ),
   CLAIM_ASSIGNED: staff(
     "STAFF_ASSIGNMENT",
     "ASSIGNMENTS",
     "/admin/claims",
     "important",
+    {
+      subject: "Claim assigned",
+      preheader: "A claim is ready for your attention.",
+      dedupe: "STAFF_CLAIM_ASSIGNED:<assignment>:<staff>",
+    },
   ),
   HIGH_PRIORITY_CLAIM: staff(
     "STAFF_PRIORITY",
     "PRIORITY",
     "/admin/claims",
     "action",
+    {
+      subject: "High-priority Claims Bridge case",
+      preheader: "A claim has moved into the high-priority queue.",
+      dedupe: "STAFF_HIGH_PRIORITY:<claim>:<staff>",
+    },
   ),
 } as const;
 export type CommunicationEventKey = keyof typeof communicationEvents;

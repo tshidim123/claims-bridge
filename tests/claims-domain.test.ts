@@ -2348,7 +2348,7 @@ test("welcome is queued exactly on first profile creation, not profile edits", (
   assert.match(source, /dedupeKey: `WELCOME:\$\{profile\.clientReference\}`/);
   assert.match(
     source,
-    /recipientType: "CLIENT", recipientReference: profile\.clientReference/,
+    /recipientType: "CLIENT",\s+recipientReference: profile\.clientReference/,
   );
 });
 
@@ -2372,7 +2372,7 @@ test("explicit claim creation queues a deferred client claim-created email in it
   assert.match(source, /event: "CLAIM_CREATED"/);
   assert.match(
     source,
-    /recipientType: "CLIENT", recipientReference: profile\.clientReference/,
+    /recipientType: "CLIENT",\s+recipientReference: profile\.clientReference/,
   );
   assert.match(source, /CLAIM_CREATED:\$\{claim\.claimReference\}/);
   assert.match(source, /createClaimNotificationInTransaction/);
@@ -2474,7 +2474,7 @@ test("claim status transitions enqueue deferred client email from durable histor
   assert.match(source, /event: policy\.event/);
   assert.match(
     source,
-    /recipientType: "CLIENT", recipientReference: profile\.clientReference/,
+    /recipientType: "CLIENT",\s+recipientReference: profile\.clientReference/,
   );
   assert.match(source, /dedupeKey: `CLAIM_STATUS:\$\{history\.id\}`/);
   assert.match(source, /createClaimNotificationInTransaction/);
@@ -2521,7 +2521,7 @@ test("durably finalized document uploads queue one deferred document-received em
   assert.match(source, /event: "DOCUMENT_RECEIVED"/);
   assert.match(
     source,
-    /recipientType: "CLIENT", recipientReference: profile\.clientReference/,
+    /recipientType: "CLIENT",\s+recipientReference: profile\.clientReference/,
   );
   assert.match(
     source,
@@ -2772,5 +2772,143 @@ test("final client lifecycle registry entries are service communications with co
   assert.match(
     notifications,
     /\/account\/assessments\/\$\{encodeURIComponent\(actionReference\)\}/,
+  );
+});
+
+test("staff communication dispatcher enforces active, relevant, channel-aware deferred delivery", () => {
+  const source = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-notifications.ts"),
+    "utf8",
+  );
+  assert.match(source, /eq\(staffUsers\.status, "ACTIVE"\)/);
+  assert.match(source, /member\.role !== "READ_ONLY"/);
+  assert.match(
+    source,
+    /hasPermissionForRole\(member\.role, definition\.permission\)/,
+  );
+  assert.match(source, /emailEnabled: preference\?\.emailEnabled !== false/);
+  assert.match(source, /inAppEnabled: preference\?\.inAppEnabled !== false/);
+  assert.match(source, /mode: "DEFERRED"/);
+  assert.match(source, /recipientType: "STAFF"/);
+  assert.match(
+    source,
+    /STAFF_\$\{input\.event\}:\$\{input\.dedupeScope\}:\$\{staff\.staffReference\}/,
+  );
+});
+
+test("all eight staff lifecycle events have central policy, outbox, and in-app support", () => {
+  const dispatcher = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-notifications.ts"),
+    "utf8",
+  );
+  const registry = fs.readFileSync(
+    path.resolve("src/lib/communications/registry.ts"),
+    "utf8",
+  );
+  for (const event of [
+    "NEW_PRE_ACCOUNT_ASSESSMENT",
+    "NEW_AUTHENTICATED_ASSESSMENT",
+    "NEW_CLAIM",
+    "CLIENT_MESSAGE_RECEIVED",
+    "EVIDENCE_UPLOADED",
+    "CLIENT_ACTION_COMPLETED",
+    "CLAIM_ASSIGNED",
+    "HIGH_PRIORITY_CLAIM",
+  ]) {
+    assert.match(dispatcher, new RegExp(event));
+    assert.match(registry, new RegExp(`${event}: staff`));
+  }
+  assert.match(dispatcher, /staffNotifications/);
+  assert.match(dispatcher, /emailOutbox/);
+});
+
+test("pre-account and authenticated assessments emit staff operational events only after persistence", () => {
+  const leads = fs.readFileSync(
+    path.resolve("src/lib/leads/service.ts"),
+    "utf8",
+  );
+  const assessments = fs.readFileSync(
+    path.resolve("src/lib/eligibility/persistence/repository.ts"),
+    "utf8",
+  );
+  assert.match(leads, /event: "NEW_PRE_ACCOUNT_ASSESSMENT"/);
+  assert.match(leads, /assessmentReceiptValues/);
+  assert.match(assessments, /parsed\.status === "complete"/);
+  assert.match(assessments, /event: "NEW_AUTHENTICATED_ASSESSMENT"/);
+});
+
+test("claim creation, client message, evidence upload, and action completion emit safe staff events", () => {
+  const claims = fs.readFileSync(
+    path.resolve("src/lib/claims/repository.ts"),
+    "utf8",
+  );
+  const messages = fs.readFileSync(
+    path.resolve("src/lib/messaging/repository.ts"),
+    "utf8",
+  );
+  const documents = fs.readFileSync(
+    path.resolve("src/lib/documents/service.ts"),
+    "utf8",
+  );
+  const actions = fs.readFileSync(
+    path.resolve("src/lib/actions/repository.ts"),
+    "utf8",
+  );
+  assert.match(claims, /event: "NEW_CLAIM"/);
+  assert.match(messages, /event: "CLIENT_MESSAGE_RECEIVED"/);
+  assert.match(documents, /event: "EVIDENCE_UPLOADED"/);
+  assert.match(actions, /event: "CLIENT_ACTION_COMPLETED"/);
+  assert.doesNotMatch(
+    messages.slice(
+      messages.indexOf("CLIENT_MESSAGE_RECEIVED"),
+      messages.indexOf(
+        "return message;",
+        messages.indexOf("CLIENT_MESSAGE_RECEIVED"),
+      ),
+    ),
+    /body,/,
+  );
+  assert.doesNotMatch(
+    documents.slice(
+      documents.indexOf("EVIDENCE_UPLOADED"),
+      documents.indexOf(
+        "claimDocumentUploads",
+        documents.indexOf("EVIDENCE_UPLOADED"),
+      ),
+    ),
+    /storageKey|objectKey/,
+  );
+});
+
+test("assignment and priority transitions target staff only without client priority communications", () => {
+  const service = fs.readFileSync(
+    path.resolve("src/lib/admin/claims/service.ts"),
+    "utf8",
+  );
+  const client = fs.readFileSync(
+    path.resolve("src/lib/claims/repository.ts"),
+    "utf8",
+  );
+  assert.match(service, /event: "CLAIM_ASSIGNED"/);
+  assert.match(service, /onlyStaffReference: target\.staffReference/);
+  assert.match(service, /priority === "HIGH"/);
+  assert.match(service, /event: "HIGH_PRIORITY_CLAIM"/);
+  assert.doesNotMatch(client, /HIGH_PRIORITY_CLAIM/);
+});
+
+test("staff operational email renderer avoids client PII and uses secure admin destinations", () => {
+  const email = fs.readFileSync(
+    path.resolve("src/lib/communications/email.tsx"),
+    "utf8",
+  );
+  assert.match(email, /function StaffOperationalEmail/);
+  assert.match(email, /OPEN IN CLAIMS BRIDGE/);
+  assert.match(email, /excludes client PII and secure\s+content/);
+  assert.doesNotMatch(
+    email.slice(
+      email.indexOf("function StaffOperationalEmail"),
+      email.indexOf("type RenderableCommunicationEmailInput"),
+    ),
+    /messageBody|storageKey|clerkUserId/,
   );
 });

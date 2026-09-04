@@ -76,6 +76,13 @@ export type ClientActionPayload = {
   dueDate?: string | null;
   actionUrl?: string;
 };
+export type StaffOperationalPayload = {
+  reference: string;
+  summary: string;
+  destination: string;
+  subject: string;
+  preheader: string;
+};
 export type EmailPayload =
   | AssessmentReceiptPayload
   | WelcomePayload
@@ -87,6 +94,7 @@ export type EmailPayload =
   | AssessmentAttachedPayload
   | SecureMessagePayload
   | ClientActionPayload
+  | StaffOperationalPayload
   | Record<string, never>;
 export type EmailRecipient =
   | {
@@ -714,6 +722,28 @@ function ClientActionEmail({ payload }: { payload: ClientActionPayload }) {
   );
 }
 
+function StaffOperationalEmail({
+  payload,
+}: {
+  payload: StaffOperationalPayload;
+}) {
+  const href = safeUrl(payload.destination, "/admin");
+  return (
+    <Shell preheader={payload.preheader}>
+      <Hero eyebrow="Claims Bridge operations" title={payload.subject}>
+        {payload.summary}
+      </Hero>
+      <ReferenceCard label="Reference" value={payload.reference} />
+      <PrimaryButton href={href}>OPEN IN CLAIMS BRIDGE</PrimaryButton>
+      <SecurityNotice>
+        View sensitive client details only in the authenticated Claims Bridge
+        admin workspace. This email intentionally excludes client PII and secure
+        content.
+      </SecurityNotice>
+    </Shell>
+  );
+}
+
 type RenderableCommunicationEmailInput =
   | { event: "ASSESSMENT_RECEIVED"; payload: AssessmentReceiptPayload }
   | { event: "WELCOME"; payload: WelcomePayload }
@@ -728,7 +758,15 @@ type RenderableCommunicationEmailInput =
       payload: AssessmentAttachedPayload;
     }
   | { event: "NEW_SECURE_MESSAGE"; payload: SecureMessagePayload }
-  | { event: "CLIENT_ACTION_REQUIRED"; payload: ClientActionPayload };
+  | { event: "CLIENT_ACTION_REQUIRED"; payload: ClientActionPayload }
+  | { event: "NEW_PRE_ACCOUNT_ASSESSMENT"; payload: StaffOperationalPayload }
+  | { event: "NEW_AUTHENTICATED_ASSESSMENT"; payload: StaffOperationalPayload }
+  | { event: "NEW_CLAIM"; payload: StaffOperationalPayload }
+  | { event: "CLIENT_MESSAGE_RECEIVED"; payload: StaffOperationalPayload }
+  | { event: "EVIDENCE_UPLOADED"; payload: StaffOperationalPayload }
+  | { event: "CLIENT_ACTION_COMPLETED"; payload: StaffOperationalPayload }
+  | { event: "CLAIM_ASSIGNED"; payload: StaffOperationalPayload }
+  | { event: "HIGH_PRIORITY_CLAIM"; payload: StaffOperationalPayload };
 
 type UnsupportedCommunicationEmailInput = {
   event: Exclude<
@@ -887,6 +925,23 @@ export async function renderCommunicationEmail(input: CommunicationEmailInput) {
         preheader: "Review the next step requested for your claim.",
         html: await renderEmail(<ClientActionEmail payload={item} />),
         text: `Action needed for claim ${item.claimReference}.\n\n${item.title}\n${item.description}${item.dueDate ? `\nDue date: ${item.dueDate}` : ""}\n\nView required action: ${url}`,
+      };
+    }
+    case "NEW_PRE_ACCOUNT_ASSESSMENT":
+    case "NEW_AUTHENTICATED_ASSESSMENT":
+    case "NEW_CLAIM":
+    case "CLIENT_MESSAGE_RECEIVED":
+    case "EVIDENCE_UPLOADED":
+    case "CLIENT_ACTION_COMPLETED":
+    case "CLAIM_ASSIGNED":
+    case "HIGH_PRIORITY_CLAIM": {
+      const item = input.payload;
+      const url = safeUrl(item.destination, "/admin");
+      return {
+        subject: item.subject,
+        preheader: item.preheader,
+        html: await renderEmail(<StaffOperationalEmail payload={item} />),
+        text: `${item.subject}\n\nReference: ${item.reference}\n\n${item.summary}\n\nOpen in Claims Bridge: ${url}\n\nView sensitive client details only in the secure admin workspace.`,
       };
     }
     default:

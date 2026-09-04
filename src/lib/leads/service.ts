@@ -34,6 +34,7 @@ import {
   getStaffRecordByClerkId,
   requirePermission,
 } from "@/lib/staff/authorization";
+import { emitStaffCommunicationInTransaction } from "@/lib/communications/staff-notifications";
 
 const HANDOFF_MINUTES = 45;
 const CONVERSION_MINUTES = 30;
@@ -167,13 +168,18 @@ export async function createPreAccountAssessment(
         }),
       )
       .onConflictDoNothing({ target: emailOutbox.dedupeKey });
-    await tx
-      .insert(eligibilityLeadConversionTokens)
-      .values({
-        leadId: lead.id,
-        tokenHash: hashLeadToken(conversionToken),
-        expiresAt: new Date(now.getTime() + CONVERSION_MINUTES * 60_000),
-      });
+    await emitStaffCommunicationInTransaction(tx, {
+      event: "NEW_PRE_ACCOUNT_ASSESSMENT",
+      reference: preAccount.assessmentReference,
+      summary: `${outcome.headline}. Preferred contact: ${parsed.preferredContactMethod}.`,
+      destination: `/admin/assessments/${encodeURIComponent(preAccount.assessmentReference)}`,
+      dedupeScope: preAccount.assessmentReference,
+    });
+    await tx.insert(eligibilityLeadConversionTokens).values({
+      leadId: lead.id,
+      tokenHash: hashLeadToken(conversionToken),
+      expiresAt: new Date(now.getTime() + CONVERSION_MINUTES * 60_000),
+    });
     return {
       leadReference: lead.leadReference,
       assessmentReference: preAccount.assessmentReference,
@@ -236,13 +242,11 @@ export async function createDurableLead(
         })
     )[0];
     if (!lead) throw new Error("Could not create lead.");
-    await tx
-      .insert(eligibilityLeadConversionTokens)
-      .values({
-        leadId: lead.id,
-        tokenHash: hashLeadToken(conversionToken),
-        expiresAt: new Date(now.getTime() + CONVERSION_MINUTES * 60_000),
-      });
+    await tx.insert(eligibilityLeadConversionTokens).values({
+      leadId: lead.id,
+      tokenHash: hashLeadToken(conversionToken),
+      expiresAt: new Date(now.getTime() + CONVERSION_MINUTES * 60_000),
+    });
     return { leadReference: lead.leadReference, conversionToken };
   });
 }
