@@ -2912,3 +2912,56 @@ test("staff operational email renderer avoids client PII and uses secure admin d
     /messageBody|storageKey|clerkUserId/,
   );
 });
+
+test("staff notification operations scope aggregate, recent, and read mutations to the active staff member", () => {
+  const operations = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-operations.ts"),
+    "utf8",
+  );
+  assert.match(operations, /count\(\)/);
+  assert.match(operations, /\.limit\(8\)/);
+  assert.match(
+    operations,
+    /desc\(staffNotifications\.createdAt\), desc\(staffNotifications\.id\)/,
+  );
+  assert.match(operations, /eq\(staffNotifications\.staffUserId, staff\.id\)/);
+  assert.match(operations, /isNull\(staffNotifications\.readAt\)/);
+});
+
+test("notification centre uses canonical categories, safe routes, and bounded stable pagination", () => {
+  const page = fs.readFileSync(
+    path.resolve("src/app/admin/notifications/page.tsx"),
+    "utf8",
+  );
+  const operations = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-operations.ts"),
+    "utf8",
+  );
+  assert.match(page, /ASSESSMENTS: "Assessments"/);
+  assert.match(page, /PRIORITY: "System"/);
+  assert.match(page, /openNotification/);
+  assert.match(operations, /row\.destination\.startsWith\("\/admin\/"\)/);
+  assert.match(page, /\.limit\(pageSize \+ 1\)/);
+  assert.match(
+    page,
+    /desc\(staffNotifications\.createdAt\), desc\(staffNotifications\.id\)/,
+  );
+  assert.match(page, /isNull\(staffNotifications\.readAt\)/);
+});
+
+test("staff preference controls remain self-scoped and validate canonical categories", () => {
+  const operations = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-operations.ts"),
+    "utf8",
+  );
+  const preferences = fs.readFileSync(
+    path.resolve("src/app/admin/preferences/page.tsx"),
+    "utf8",
+  );
+  assert.match(operations, /Invalid notification category/);
+  assert.match(operations, /currentStaff\(clerkUserId\)/);
+  assert.match(preferences, /staff\.status !== "ACTIVE"/);
+  assert.match(preferences, /Preferences control delivery channels only/);
+  assert.match(preferences, /name="inApp"/);
+  assert.match(preferences, /name="email"/);
+});

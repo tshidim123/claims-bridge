@@ -15,6 +15,7 @@ const sections: ReadonlyArray<{ label: string; items: ReadonlyArray<{ label: str
     { label: "Client actions", href: "/admin/client-actions", permission: "CLAIMS_VIEW" },
     { label: "Notifications", href: "/admin/notifications", permission: "NOTIFICATIONS_VIEW" },
     { label: "Communications", href: "/admin/communications", permission: "SETTINGS_VIEW" },
+    { label: "Preferences", href: "/admin/preferences", permission: "NOTIFICATIONS_VIEW" },
     { label: "Clients", href: "/admin/clients", permission: "CLIENTS_VIEW" },
   ] },
   { label: "Security & access", items: [
