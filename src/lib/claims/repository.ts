@@ -7,6 +7,9 @@ import { getDb } from "@/lib/db";
 import { clientProfiles } from "@/lib/db/schema/client-profiles";
 import { eligibilityAssessments } from "@/lib/db/schema/eligibility";
 import { claimStatusHistory, claimTimelineEvents, claims } from "@/lib/db/schema/claims";
+import { emailOutbox } from "@/lib/db/schema/communications";
+import { buildEmailOutboxValues } from "@/lib/communications/email";
+import { createClaimNotificationInTransaction } from "@/lib/notifications/repository";
 import { generateClaimReference } from "./reference";
 
 const MAX_REFERENCE_ATTEMPTS = 5;
@@ -35,21 +38,21 @@ function isUniqueViolation(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23505";
 }
 
-async function getOwnedProfileId(db: ReturnType<typeof getDb>, clerkUserId: string) {
-  const row = (await db.select({ id: clientProfiles.id }).from(clientProfiles).where(eq(clientProfiles.clerkUserId, clerkUserId)).limit(1))[0];
+async function getOwnedProfile(db: ReturnType<typeof getDb>, clerkUserId: string) {
+  const row = (await db.select({ id: clientProfiles.id, clientReference: clientProfiles.clientReference }).from(clientProfiles).where(eq(clientProfiles.clerkUserId, clerkUserId)).limit(1))[0];
   if (!row) throw new ClaimDomainError("PROFILE_NOT_FOUND");
-  return row.id;
+  return row;
 }
 
 export async function getClaimByAssessmentForClient(clerkUserId: string, eligibilityAssessmentId: string) {
   const db = getDb();
-  const clientProfileId = await getOwnedProfileId(db, clerkUserId);
+  const clientProfileId = (await getOwnedProfile(db, clerkUserId)).id;
   return (await db.select(clientClaimColumns).from(claims).where(and(eq(claims.clientProfileId, clientProfileId), eq(claims.eligibilityAssessmentId, eligibilityAssessmentId))).limit(1))[0];
 }
 
 export async function getClaimByAssessmentReferenceForClient(clerkUserId: string, assessmentReference: string) {
   const db = getDb();
-  const clientProfileId = await getOwnedProfileId(db, clerkUserId);
+  const clientProfileId = (await getOwnedProfile(db, clerkUserId)).id;
   const assessment = (await db.select({ id: eligibilityAssessments.id }).from(eligibilityAssessments).where(and(eq(eligibilityAssessments.clientProfileId, clientProfileId), eq(eligibilityAssessments.assessmentReference, assessmentReference))).limit(1))[0];
   if (!assessment) return undefined;
   return (await db.select(clientClaimColumns).from(claims).where(and(eq(claims.clientProfileId, clientProfileId), eq(claims.eligibilityAssessmentId, assessment.id))).limit(1))[0];
@@ -57,7 +60,8 @@ export async function getClaimByAssessmentReferenceForClient(clerkUserId: string
 
 export async function createClaimFromAssessment(clerkUserId: string, eligibilityAssessmentId: string) {
   const db = getDb();
-  const clientProfileId = await getOwnedProfileId(db, clerkUserId);
+  const profile = await getOwnedProfile(db, clerkUserId);
+  const clientProfileId = profile.id;
 
   for (let attempt = 0; attempt < MAX_REFERENCE_ATTEMPTS; attempt += 1) {
     try {
@@ -98,6 +102,8 @@ export async function createClaimFromAssessment(clerkUserId: string, eligibility
           occurredAt: now,
           createdAt: now,
         });
+        await tx.insert(emailOutbox).values(buildEmailOutboxValues({ event: "CLAIM_CREATED", recipient: { mode: "DEFERRED", recipientType: "CLIENT", recipientReference: profile.clientReference }, payload: { claimReference: claim.claimReference, stage: "Submitted", summary: "Your claim record has been created and is ready for the initial review process.", evidence: ["Keep your tenancy, deposit and landlord or agent records available for review."] }, dedupeKey: `CLAIM_CREATED:${claim.claimReference}` })).onConflictDoNothing({ target: emailOutbox.dedupeKey });
+        await createClaimNotificationInTransaction(tx, { claimId: claim.id, type: "CLAIM_PROGRESS_UPDATE", sourceType: "CLAIM", sourceId: claim.id, dedupeKey: `claim-created:${claim.claimReference}` });
 
         return claim;
       });
@@ -111,7 +117,7 @@ export async function createClaimFromAssessment(clerkUserId: string, eligibility
 
 export async function createClaimFromAssessmentReference(clerkUserId: string, assessmentReference: string) {
   const db = getDb();
-  const clientProfileId = await getOwnedProfileId(db, clerkUserId);
+  const clientProfileId = (await getOwnedProfile(db, clerkUserId)).id;
   const assessment = (await db.select({ id: eligibilityAssessments.id }).from(eligibilityAssessments).where(and(eq(eligibilityAssessments.clientProfileId, clientProfileId), eq(eligibilityAssessments.assessmentReference, assessmentReference))).limit(1))[0];
   if (!assessment) throw new ClaimDomainError("ASSESSMENT_NOT_FOUND");
   return createClaimFromAssessment(clerkUserId, assessment.id);
@@ -119,13 +125,13 @@ export async function createClaimFromAssessmentReference(clerkUserId: string, as
 
 export async function getClaimsForClient(clerkUserId: string) {
   const db = getDb();
-  const clientProfileId = await getOwnedProfileId(db, clerkUserId);
+  const clientProfileId = (await getOwnedProfile(db, clerkUserId)).id;
   return db.select(clientClaimColumns).from(claims).where(eq(claims.clientProfileId, clientProfileId)).orderBy(desc(claims.createdAt));
 }
 
 export async function getClaimForClient(clerkUserId: string, claimReference: string) {
   const db = getDb();
-  const clientProfileId = await getOwnedProfileId(db, clerkUserId);
+  const clientProfileId = (await getOwnedProfile(db, clerkUserId)).id;
   const claim = (await db.select(clientClaimColumns).from(claims).where(and(eq(claims.clientProfileId, clientProfileId), eq(claims.claimReference, claimReference))).limit(1))[0];
   if (!claim) return undefined;
 

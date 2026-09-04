@@ -1008,3 +1008,107 @@ test("public header account navigation uses real private routes and avoids ident
   assert.doesNotMatch(header, /phone|address|clerkUserId|clientProfileId|assessmentsCount/);
   assert.match(layout, /dynamic = "force-dynamic"/);
 });
+
+test("communications use a discriminated snapshot and deferred recipient model", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(source, /mode: "SNAPSHOT"; recipientType: "PRE_ACCOUNT"/);
+  assert.match(source, /mode: "DEFERRED"; recipientType: "CLIENT" \| "STAFF"/);
+  assert.match(source, /recipientEmail: input\.recipient\.mode === "SNAPSHOT" \? normalizeEmailAddress/);
+  assert.doesNotMatch(source, /recipientEmail: .*\|\| ""/);
+});
+
+test("pre-account assessment receipts retain their submitted snapshot email", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(source, /recipientType: "PRE_ACCOUNT", recipientReference, email: recipientEmail/);
+  assert.match(source, /ASSESSMENT_RECEIPT:\$\{payload\.assessmentReference\}/);
+});
+
+test("deferred recipients resolve only at delivery and snapshot before provider send", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(source, /record\.recipientEmail \? \{ ok: true as const, email: record\.recipientEmail \} : await resolveEmailRecipient/);
+  assert.match(source, /if \(!record\.recipientEmail\) await getDb\(\)\.update\(emailOutbox\)\.set\(\{ recipientEmail: resolved\.email/);
+  assert.match(source, /RECIPIENT_SUPPRESSED/);
+});
+
+test("communication email validation rejects malformed and header-injected snapshot recipients", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(source, /!emailPattern\.test\(email\) \|\| \/\[\\r\\n\]\//);
+  assert.match(source, /throw new Error\("Invalid email recipient\."\)/);
+});
+
+test("email outbox dedupe is independent of recipient email", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  const claimsSource = fs.readFileSync(path.resolve("src/lib/claims/repository.ts"), "utf8");
+  const evidenceSource = fs.readFileSync(path.resolve("src/lib/admin/claims/workflow-service.ts"), "utf8");
+  assert.match(source, /onConflictDoNothing\(\{ target: emailOutbox\.dedupeKey \}\)/);
+  assert.match(claimsSource, /dedupeKey: `CLAIM_CREATED:\$\{claim\.claimReference\}`/);
+  assert.match(evidenceSource, /dedupeKey: `EVIDENCE_REQUESTED:\$\{result\.requirement\.requirementReference\}`/);
+});
+
+test("welcome is queued exactly on first profile creation, not profile edits", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/clients/repository.ts"), "utf8");
+  assert.match(source, /if \(!existing\) return db\.transaction/);
+  assert.match(source, /event: "WELCOME"/);
+  assert.match(source, /dedupeKey: `WELCOME:\$\{profile\.clientReference\}`/);
+  assert.match(source, /recipientType: "CLIENT", recipientReference: profile\.clientReference/);
+});
+
+test("welcome email is a professional account email with a safe account CTA", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(source, /Welcome to Claims Bridge/);
+  assert.match(source, /OPEN MY ACCOUNT/);
+  assert.match(source, /Eligibility assessments and saved results/);
+  assert.match(source, /Having an account does not create a claim/);
+});
+
+test("explicit claim creation queues a deferred client claim-created email in its transaction", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/claims/repository.ts"), "utf8");
+  assert.match(source, /db\.transaction\(async \(tx\)/);
+  assert.match(source, /event: "CLAIM_CREATED"/);
+  assert.match(source, /recipientType: "CLIENT", recipientReference: profile\.clientReference/);
+  assert.match(source, /CLAIM_CREATED:\$\{claim\.claimReference\}/);
+  assert.match(source, /createClaimNotificationInTransaction/);
+});
+
+test("assessment persistence cannot create a claim-created communication", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/eligibility/persistence/actions.ts"), "utf8");
+  assert.doesNotMatch(source, /event: "CLAIM_CREATED"/);
+});
+
+test("claim-created email uses a canonical secure claim route and safe language", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(source, /\/account\/claims\/\$\{encodeURIComponent\(payload\.claimReference\)\}/);
+  assert.match(source, /VIEW MY CLAIM/);
+  assert.match(source, /does not guarantee a legal or compensation outcome/);
+});
+
+test("client-facing evidence requests queue a deferred email in the staff workflow transaction", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/admin/claims/workflow-service.ts"), "utf8");
+  assert.match(source, /event: "EVIDENCE_REQUESTED"/);
+  assert.match(source, /recipientType: "CLIENT", recipientReference: claim\.clientReference/);
+  assert.match(source, /EVIDENCE_REQUESTED:\$\{result\.requirement\.requirementReference\}/);
+  assert.match(source, /if \(!result\.requirement\.clientVisible\) throw/);
+});
+
+test("evidence email contains only safe requested evidence details and secure upload direction", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  assert.match(source, /VIEW EVIDENCE REQUEST/);
+  assert.match(source, /do not reply with documents to this email/);
+  assert.doesNotMatch(source, /storageKey/);
+  assert.doesNotMatch(source, /fraud/i);
+});
+
+test("the three core templates provide subjects, preheaders, and text fallbacks", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/email.tsx"), "utf8");
+  for (const event of ["WELCOME", "CLAIM_CREATED", "EVIDENCE_REQUESTED"]) assert.match(source, new RegExp(`case "${event}"`));
+  assert.match(source, /preheader:/);
+  assert.match(source, /text:/);
+  assert.match(source, /Support: \$\{siteUrl\(\)\}\/contact/);
+});
+
+test("core communication registry centralizes subject, preheader, route, and dedupe policy", () => {
+  const source = fs.readFileSync(path.resolve("src/lib/communications/registry.ts"), "utf8");
+  for (const event of ["WELCOME", "CLAIM_CREATED", "EVIDENCE_REQUESTED"]) assert.match(source, new RegExp(`${event}: \{[^}]+subject:`));
+  assert.match(source, /destination: "\/account"/);
+  assert.match(source, /dedupe:/);
+});

@@ -8,6 +8,9 @@ import type { DocumentStatus } from "@/config/evidence";
 import { hasPermissionForRole } from "@/config/staff";
 import { getDb } from "@/lib/db";
 import { claims } from "@/lib/db/schema/claims";
+import { clientProfiles } from "@/lib/db/schema/client-profiles";
+import { emailOutbox } from "@/lib/db/schema/communications";
+import { buildEmailOutboxValues } from "@/lib/communications/email";
 import { claimEvidenceRequirements } from "@/lib/db/schema/evidence";
 import { transitionClaimStatusInTransaction } from "@/lib/claims/transitions";
 import { requestEvidenceInTransaction, updateEvidenceRequirementStatusInTransaction } from "@/lib/evidence/repository";
@@ -37,7 +40,7 @@ async function getActorInTransaction(executor: StaffDbExecutor, clerkUserId: str
 }
 
 async function claimIdForReference(executor: StaffDbExecutor, claimReference: string) {
-  return (await executor.select({ id: claims.id, status: claims.status, archivedAt: claims.archivedAt }).from(claims).where(eq(claims.claimReference, claimReference)).limit(1))[0];
+  return (await executor.select({ id: claims.id, status: claims.status, archivedAt: claims.archivedAt, clientReference: clientProfiles.clientReference }).from(claims).innerJoin(clientProfiles, eq(clientProfiles.id, claims.clientProfileId)).where(eq(claims.claimReference, claimReference)).limit(1))[0];
 }
 
 function ensureWorkflowClaim<T extends { status: ClaimStatus; archivedAt: Date | null }>(claim: T | undefined): T {
@@ -97,6 +100,7 @@ export async function requestEvidenceForStaff(clerkUserId: string, claimReferenc
     if (!result.requirement.clientVisible) throw new StaffWorkflowError("FORBIDDEN");
     if (!result.created) return { requirementReference: result.requirement.requirementReference, created: false };
     const definition = evidenceRequirementConfig[evidenceType as EvidenceRequirementType];
+    await tx.insert(emailOutbox).values(buildEmailOutboxValues({ event: "EVIDENCE_REQUESTED", recipient: { mode: "DEFERRED", recipientType: "CLIENT", recipientReference: claim.clientReference }, payload: { claimReference, requirementReference: result.requirement.requirementReference, title: definition.label, description: definition.description, dueDate: result.requirement.dueAt?.toISOString().slice(0, 10) ?? null }, dedupeKey: `EVIDENCE_REQUESTED:${result.requirement.requirementReference}` })).onConflictDoNothing({ target: emailOutbox.dedupeKey });
     await recordStaffAuditEvent(tx, { actorStaffUserId: actor.staffUserId, actorType: "STAFF", action: "EVIDENCE_REQUESTED", targetType: "CLAIM", targetReference: claimReference, metadata: { evidenceType, required: result.requirement.required, priority: result.requirement.priority, dueDate: result.requirement.dueAt?.toISOString().slice(0, 10) ?? "NONE", requirementReference: result.requirement.requirementReference } });
     return { requirementReference: result.requirement.requirementReference, created: true, title: definition.label };
   });
