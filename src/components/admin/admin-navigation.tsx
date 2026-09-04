@@ -13,6 +13,8 @@ const sections: ReadonlyArray<{ label: string; items: ReadonlyArray<{ label: str
     { label: "Evidence", href: "/admin/evidence", permission: "EVIDENCE_VIEW" },
     { label: "Documents", href: "/admin/documents", permission: "DOCUMENTS_VIEW" },
     { label: "Client actions", href: "/admin/client-actions", permission: "CLAIMS_VIEW" },
+    { label: "Notifications", href: "/admin/notifications", permission: "NOTIFICATIONS_VIEW" },
+    { label: "Communications", href: "/admin/communications", permission: "SETTINGS_VIEW" },
     { label: "Clients", href: "/admin/clients", permission: "CLIENTS_VIEW" },
   ] },
   { label: "Security & access", items: [
