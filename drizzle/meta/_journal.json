@@ -162,6 +162,13 @@
       "when": 1788446000000,
       "tag": "0022_staff_communications",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788520000000,
+      "tag": "0023_deferred_email_recipients",
+      "breakpoints": true
     }
   ]
 }
