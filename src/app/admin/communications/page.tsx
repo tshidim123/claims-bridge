@@ -1,4 +1,4 @@
-import { count, desc, eq } from "drizzle-orm";
+import { count, desc } from "drizzle-orm";
 import { AdminAccessDenied } from "@/components/admin/admin-access-denied";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { getDb } from "@/lib/db";
