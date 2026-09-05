@@ -2985,3 +2985,59 @@ test("staff preference controls remain self-scoped and validate canonical catego
   assert.match(preferences, /name="inApp"/);
   assert.match(preferences, /name="email"/);
 });
+
+test("communications operations use bounded, safe, permissioned inspection controls", () => {
+  const page = fs.readFileSync(
+    path.resolve("src/app/admin/communications/page.tsx"),
+    "utf8",
+  );
+  const detail = fs.readFileSync(
+    path.resolve("src/app/admin/communications/[emailReference]/page.tsx"),
+    "utf8",
+  );
+  assert.match(page, /SETTINGS_VIEW/);
+  assert.match(page, /limit\(pageSize \+ 1\)/);
+  assert.match(page, /desc\(emailOutbox\.createdAt\), desc\(emailOutbox\.id\)/);
+  assert.match(page, /recipient: emailOutbox\.recipientReference/);
+  assert.doesNotMatch(page, /recipientEmail|payload: emailOutbox\.payload/);
+  assert.match(detail, /\^CB-EML-/);
+  assert.doesNotMatch(detail, /item\.payload|item\.recipientEmail/);
+});
+
+test("manual communication retry is conditional, audited, and preserves the logical communication", () => {
+  const operations = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-operations.ts"),
+    "utf8",
+  );
+  assert.match(
+    operations,
+    /requirePermission\(clerkUserId, "SETTINGS_MANAGE"\)/,
+  );
+  assert.match(operations, /\["FAILED", "RETRY"\]/);
+  assert.match(operations, /eq\(emailOutbox\.status, row\.status\)/);
+  assert.match(operations, /COMMUNICATION_RETRY_REQUESTED/);
+  assert.match(
+    operations,
+    /emailReference: row\.emailReference,\s*communicationEvent: row\.eventKey/,
+  );
+  assert.doesNotMatch(operations, /recipientEmail:|payload:/);
+});
+
+test("assessment receipt status and system health separate delivery confirmation from provider configuration", () => {
+  const receipt = fs.readFileSync(
+    path.resolve("src/components/admin/assessment-receipt-status.tsx"),
+    "utf8",
+  );
+  const system = fs.readFileSync(
+    path.resolve("src/app/admin/system/page.tsx"),
+    "utf8",
+  );
+  assert.match(
+    receipt,
+    /Sent means the provider accepted the request\. Delivered requires/,
+  );
+  assert.match(receipt, /deliveryAt/);
+  assert.match(system, /RESEND_WEBHOOK_SECRET/);
+  assert.match(system, /Transactional email delivery is currently inactive/);
+  assert.doesNotMatch(system, /process\.env\.RESEND_API_KEY\s*}/);
+});

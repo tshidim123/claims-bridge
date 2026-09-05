@@ -11,6 +11,7 @@ import {
   getStaffRecordByClerkId,
   requirePermission,
 } from "@/lib/staff/authorization";
+import { recordStaffAuditEvent } from "@/lib/staff/audit";
 
 async function currentStaff(clerkUserId: string) {
   const staff = await getStaffRecordByClerkId(clerkUserId);
@@ -125,6 +126,7 @@ export async function retryEmailForStaff(
   emailReference: string,
 ) {
   await requirePermission(clerkUserId, "SETTINGS_MANAGE");
+  const staff = await currentStaff(clerkUserId);
   const db = getDb();
   const row = (
     await db
@@ -135,25 +137,45 @@ export async function retryEmailForStaff(
   )[0];
   if (!row || !["FAILED", "RETRY"].includes(row.status))
     throw new Error("This email is not eligible for retry.");
-  return db
-    .update(emailOutbox)
-    .set({
-      status: "PENDING",
-      availableAt: new Date(),
-      processingStartedAt: null,
-      failedAt: null,
-      lastErrorCode: null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(emailOutbox.id, row.id), eq(emailOutbox.status, row.status)))
-    .returning({ emailReference: emailOutbox.emailReference });
+  return db.transaction(async (tx) => {
+    const updated = await tx
+      .update(emailOutbox)
+      .set({
+        status: "PENDING",
+        availableAt: new Date(),
+        processingStartedAt: null,
+        failedAt: null,
+        lastErrorCode: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(emailOutbox.id, row.id), eq(emailOutbox.status, row.status)),
+      )
+      .returning({ emailReference: emailOutbox.emailReference });
+    if (!updated[0]) throw new Error("This email retry was already requested.");
+    await recordStaffAuditEvent(tx, {
+      actorStaffUserId: staff.id,
+      actorType: "STAFF",
+      action: "COMMUNICATION_RETRY_REQUESTED",
+      targetType: "COMMUNICATION",
+      targetReference: row.emailReference,
+      metadata: {
+        emailReference: row.emailReference,
+        communicationEvent: row.eventKey,
+      },
+    });
+    return updated[0];
+  });
 }
 export async function getAssessmentReceiptStatus(reference: string) {
+  const db = getDb();
   const row = (
-    await getDb()
+    await db
       .select({
         emailReference: emailOutbox.emailReference,
         status: emailOutbox.status,
+        attemptCount: emailOutbox.attemptCount,
+        createdAt: emailOutbox.createdAt,
         lastAttemptAt: emailOutbox.lastAttemptAt,
         sentAt: emailOutbox.sentAt,
       })
@@ -166,7 +188,27 @@ export async function getAssessmentReceiptStatus(reference: string) {
       )
       .limit(1)
   )[0];
-  return row ?? null;
+  if (!row) return null;
+  const delivery = (
+    await db
+      .select({
+        eventType: emailDeliveryEvents.eventType,
+        occurredAt: emailDeliveryEvents.occurredAt,
+      })
+      .from(emailDeliveryEvents)
+      .innerJoin(
+        emailOutbox,
+        eq(emailDeliveryEvents.emailOutboxId, emailOutbox.id),
+      )
+      .where(eq(emailOutbox.emailReference, row.emailReference))
+      .orderBy(desc(emailDeliveryEvents.occurredAt))
+      .limit(1)
+  )[0];
+  return {
+    ...row,
+    deliveryEvent: delivery?.eventType ?? null,
+    deliveryAt: delivery?.occurredAt ?? null,
+  };
 }
 export async function getEmailMetrics() {
   const db = getDb();
