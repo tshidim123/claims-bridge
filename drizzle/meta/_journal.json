@@ -169,6 +169,13 @@
       "when": 1788520000000,
       "tag": "0023_deferred_email_recipients",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788521000000,
+      "tag": "0024_communication_retry_audit",
+      "breakpoints": true
     }
   ]
 }

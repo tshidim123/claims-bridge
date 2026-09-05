@@ -240,7 +240,7 @@ const [verification] = await sql`
     exists (
       select 1 from pg_type t
       where t.typname = 'staff_audit_action'
-        and (select bool_and(e.enumlabel::text = any(array['CLAIM_STATUS_CHANGED', 'CLAIM_ARCHIVED', 'CLAIM_RESTORED', 'EVIDENCE_REQUESTED', 'EVIDENCE_STATUS_CHANGED', 'DOCUMENT_STATUS_CHANGED', 'CLIENT_PROFILE_UPDATED']::text[])) from pg_enum e where e.enumtypid = t.oid and e.enumlabel::text in ('CLAIM_STATUS_CHANGED', 'CLAIM_ARCHIVED', 'CLAIM_RESTORED', 'EVIDENCE_REQUESTED', 'EVIDENCE_STATUS_CHANGED', 'DOCUMENT_STATUS_CHANGED', 'CLIENT_PROFILE_UPDATED'))
+        and (select bool_and(e.enumlabel::text = any(array['CLAIM_STATUS_CHANGED', 'CLAIM_ARCHIVED', 'CLAIM_RESTORED', 'EVIDENCE_REQUESTED', 'EVIDENCE_STATUS_CHANGED', 'DOCUMENT_STATUS_CHANGED', 'CLIENT_PROFILE_UPDATED', 'COMMUNICATION_RETRY_REQUESTED']::text[])) from pg_enum e where e.enumtypid = t.oid and e.enumlabel::text in ('CLAIM_STATUS_CHANGED', 'CLAIM_ARCHIVED', 'CLAIM_RESTORED', 'EVIDENCE_REQUESTED', 'EVIDENCE_STATUS_CHANGED', 'DOCUMENT_STATUS_CHANGED', 'CLIENT_PROFILE_UPDATED', 'COMMUNICATION_RETRY_REQUESTED'))
     ) as workflow_audit_actions,
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'claim_action_requirements') as claim_action_requirements,
     exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'claim_action_requirements' and column_name = 'action_reference') as action_reference,

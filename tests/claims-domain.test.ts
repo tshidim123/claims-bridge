@@ -1275,6 +1275,26 @@ test("Phase 10F adds only the required client-profile audit enum value", () => {
   assert.doesNotMatch(migration, /CREATE TABLE|ADD COLUMN|DROP|DELETE/i);
 });
 
+test("communication retry audit action is additive and permits only safe operational metadata", () => {
+  const migration = fs.readFileSync(
+    path.resolve("drizzle/0024_communication_retry_audit.sql"),
+    "utf8",
+  );
+  const config = fs.readFileSync(path.resolve("src/config/staff.ts"), "utf8");
+  const audit = fs.readFileSync(path.resolve("src/lib/staff/audit.ts"), "utf8");
+  assert.match(
+    migration,
+    /ALTER TYPE.*staff_audit_action.*COMMUNICATION_RETRY_REQUESTED/,
+  );
+  assert.doesNotMatch(migration, /CREATE TABLE|ADD COLUMN|DROP|DELETE/i);
+  assert.match(config, /COMMUNICATION_RETRY_REQUESTED/);
+  assert.match(audit, /"emailReference",\s*"communicationEvent"/);
+  assert.doesNotMatch(
+    audit,
+    /recipientEmail|messageBody|templatePayload|providerResponse/,
+  );
+});
+
 test("Phase 10E navigation contains only permission-aware functional queue destinations", () => {
   const source = fs.readFileSync(
     path.resolve("src/components/admin/admin-navigation.tsx"),
