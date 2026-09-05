@@ -3130,9 +3130,22 @@ svg {
 .admin-status-grid dl div { display: flex; justify-content: space-between; gap: 1rem; padding: .95rem 0; border-top: 1px solid var(--color-line); }
 .admin-status-grid dt { color: var(--color-text-muted); }
 .admin-status-grid dd { margin: 0; color: var(--color-accent-ice); font-family: var(--font-mono); font-size: .72rem; text-transform: uppercase; }
+.admin-table-wrap { width: 100%; max-width: 100%; overflow-x: auto; border: 1px solid var(--color-line); scrollbar-width: thin; }
+.admin-table-wrap table { width: 100%; min-width: 72rem; border-collapse: collapse; background: rgb(6 20 38 / 60%); }
+.admin-table-wrap th, .admin-table-wrap td { padding: .8rem; border-bottom: 1px solid var(--color-line); text-align: left; vertical-align: top; }
+.admin-table-wrap th { color: var(--color-text-quiet); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .04em; text-transform: uppercase; }
+.admin-table-wrap td { color: var(--color-text-muted); font-size: .76rem; overflow-wrap: anywhere; }
+.admin-table-wrap a { color: var(--color-accent-ice); }
+.admin-table-wrap small { color: var(--color-text-quiet); }
+.admin-table-wrap + p { color: var(--color-text-muted); }
+dl.admin-case-context > div { display: grid; gap: .4rem; min-height: 5.8rem; align-content: center; padding: .8rem 1rem .8rem 0; }
+dl.admin-case-context > div + div { padding-left: 1rem; border-left: 1px solid var(--color-line); }
+dl.admin-case-context dt { color: var(--color-text-quiet); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .05em; text-transform: uppercase; }
+dl.admin-case-context dd { margin: 0; color: var(--color-text); font-size: .82rem; font-weight: 600; overflow-wrap: anywhere; }
+@media (max-width: 900px) { dl.admin-case-context > div:nth-child(4) { padding-left: 0; border-left: 0; } }
 .admin-system-note { min-height: auto; margin-top: 2rem; }
 @media (max-width: 900px) { .admin-management-form, .admin-audit-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }.admin-staff-actions { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) { .admin-management-form, .admin-audit-filters, .admin-staff-actions { grid-template-columns: 1fr; }.admin-audit-filters > div { align-items: stretch; flex-direction: column; }.admin-audit-filters .button { width: 100%; }.admin-status-grid dl div { align-items: start; flex-direction: column; gap: .35rem; } }
+@media (max-width: 560px) { .admin-management-form, .admin-audit-filters, .admin-staff-actions { grid-template-columns: 1fr; }.admin-audit-filters > div { align-items: stretch; flex-direction: column; }.admin-audit-filters .button { width: 100%; }.admin-status-grid dl div { align-items: start; flex-direction: column; gap: .35rem; } dl.admin-case-context > div:nth-child(odd) { padding-left: 0; } dl.admin-case-context > div:nth-child(even) { border-left: 1px solid var(--color-line); } }
 
 /* Phase 11A account completion and reversible claim archival */
 .account-profile-panel { display: grid; gap: .75rem; padding: clamp(1.1rem, 3vw, 1.75rem); }

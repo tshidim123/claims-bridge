@@ -1,4 +1,5 @@
 import { AdminAccessDenied } from "@/components/admin/admin-access-denied";
+import { CommunicationsHealth } from "@/components/admin/communications-health";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { getSystemStatus } from "@/lib/system/status";
 import { getEmailMetrics } from "@/lib/communications/staff-operations";
@@ -24,7 +25,6 @@ export default async function AdminSystemPage() {
     ["Private document storage", status.documentStorage],
     ["In-app messaging", status.messaging],
     ["In-app notifications", status.notifications],
-    ["Email delivery", status.email],
     ["SMS delivery", status.sms],
     ["Push delivery", status.push],
     [
@@ -32,15 +32,6 @@ export default async function AdminSystemPage() {
       process.env.NEXT_PUBLIC_SITE_URL ? "Configured" : "Not configured",
     ],
   ] as const;
-  const metric = new Map(
-    emailMetrics.rows.map((item) => [item.status, Number(item.count)]),
-  );
-  const provider = Boolean(
-    process.env.RESEND_API_KEY && process.env.CLAIMS_BRIDGE_FROM_EMAIL,
-  );
-  const sender = Boolean(process.env.CLAIMS_BRIDGE_FROM_EMAIL);
-  const replyTo = Boolean(process.env.CLAIMS_BRIDGE_REPLY_TO);
-  const webhook = Boolean(process.env.RESEND_WEBHOOK_SECRET);
   return (
     <div className="admin-page">
       <AdminPageHeader
@@ -62,47 +53,7 @@ export default async function AdminSystemPage() {
           ))}
         </dl>
       </section>
-      <section
-        className="admin-status-grid"
-        aria-labelledby="communications-status-title"
-      >
-        <h2 id="communications-status-title">Communications</h2>
-        <p>
-          {provider
-            ? metric.get("FAILED")
-              ? "Some transactional communications require attention."
-              : "Transactional communication delivery is configured."
-            : "Transactional email delivery is currently inactive."}
-        </p>
-        <dl>
-          {[
-            [
-              "Transactional email provider",
-              provider ? "Configured" : "Not configured",
-            ],
-            ["Sender identity", sender ? "Configured" : "Not configured"],
-            ["Reply-to", replyTo ? "Configured" : "Not configured"],
-            [
-              "Delivery webhook verification",
-              webhook ? "Configured" : "Not configured",
-            ],
-            ["Pending", metric.get("PENDING") ?? 0],
-            ["Retry", metric.get("RETRY") ?? 0],
-            ["Failed", metric.get("FAILED") ?? 0],
-            ["Suppressed", metric.get("SUPPRESSED") ?? 0],
-          ].map(([label, value]) => (
-            <div key={String(label)}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-        <p>
-          {webhook
-            ? "Provider delivery tracking is configured."
-            : "Provider delivery tracking is unavailable."}
-        </p>
-      </section>
+      <CommunicationsHealth metrics={emailMetrics} />
       <section className="admin-command-panel admin-system-note">
         <p className="eyebrow">Governed configuration</p>
         <h2>Operational rules remain code-controlled.</h2>

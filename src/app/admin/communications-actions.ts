@@ -19,18 +19,18 @@ export async function markNotificationRead(formData: FormData) {
     await user(),
     String(formData.get("reference")),
   );
-  revalidatePath("/admin/notifications");
+  revalidatePath("/admin", "layout");
 }
 export async function markAllNotificationsRead() {
   await markAllStaffNotificationsRead(await user());
-  revalidatePath("/admin/notifications");
+  revalidatePath("/admin", "layout");
 }
 export async function openNotification(formData: FormData) {
   const destination = await openStaffNotification(
     await user(),
     String(formData.get("reference")),
   );
-  revalidatePath("/admin/notifications");
+  revalidatePath("/admin", "layout");
   redirect(destination);
 }
 export async function saveStaffPreference(formData: FormData) {
@@ -43,9 +43,12 @@ export async function saveStaffPreference(formData: FormData) {
   revalidatePath("/admin/preferences");
 }
 export async function retryCommunication(formData: FormData) {
+  if ([...formData.keys()].some((key) => key !== "emailReference"))
+    throw new Error("Only a communication reference is accepted.");
   await retryEmailForStaff(
     await user(),
     String(formData.get("emailReference")),
   );
-  revalidatePath("/admin/communications");
+  revalidatePath("/admin/communications", "layout");
+  revalidatePath("/admin/system");
 }

@@ -1,9 +1,18 @@
 import "server-only";
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import {
+  and,
+  count,
+  countDistinct,
+  desc,
+  eq,
+  inArray,
+  isNull,
+} from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   emailDeliveryEvents,
   emailOutbox,
+  emailSuppressions,
   staffNotificationPreferences,
   staffNotifications,
 } from "@/lib/db/schema/communications";
@@ -12,6 +21,7 @@ import {
   requirePermission,
 } from "@/lib/staff/authorization";
 import { recordStaffAuditEvent } from "@/lib/staff/audit";
+import { canManuallyRetry, isSafeEmailReference } from "./policy";
 
 async function currentStaff(clerkUserId: string) {
   const staff = await getStaffRecordByClerkId(clerkUserId);
@@ -76,7 +86,7 @@ export async function openStaffNotification(
   )[0];
   if (!row) throw new Error("Notification not found.");
   await markStaffNotificationRead(clerkUserId, reference);
-  return row.destination.startsWith("/admin/") ? row.destination : "/admin";
+  return row.destination.startsWith("/admin/") && !/[\\\r\n]/.test(row.destination) ? row.destination : "/admin";
 }
 export async function markAllStaffNotificationsRead(clerkUserId: string) {
   const staff = await currentStaff(clerkUserId);
@@ -127,17 +137,59 @@ export async function retryEmailForStaff(
 ) {
   await requirePermission(clerkUserId, "SETTINGS_MANAGE");
   const staff = await currentStaff(clerkUserId);
+  if (!isSafeEmailReference(emailReference))
+    throw new Error("Invalid communication reference.");
   const db = getDb();
-  const row = (
-    await db
-      .select()
-      .from(emailOutbox)
-      .where(eq(emailOutbox.emailReference, emailReference))
-      .limit(1)
-  )[0];
-  if (!row || !["FAILED", "RETRY"].includes(row.status))
-    throw new Error("This email is not eligible for retry.");
   return db.transaction(async (tx) => {
+    const row = (
+      await tx
+        .select()
+        .from(emailOutbox)
+        .where(eq(emailOutbox.emailReference, emailReference))
+        .limit(1)
+        .for("update")
+    )[0];
+    if (!row) throw new Error("This email is not eligible for retry.");
+
+    const suppression = row.recipientEmail
+      ? (
+          await tx
+            .select({ id: emailSuppressions.id })
+            .from(emailSuppressions)
+            .where(
+              and(
+                eq(emailSuppressions.normalizedEmail, row.recipientEmail),
+                isNull(emailSuppressions.clearedAt),
+              ),
+            )
+            .limit(1)
+        )[0]
+      : undefined;
+    const blockingEvent = (
+      await tx
+        .select({ eventType: emailDeliveryEvents.eventType })
+        .from(emailDeliveryEvents)
+        .where(
+          and(
+            eq(emailDeliveryEvents.emailOutboxId, row.id),
+            inArray(emailDeliveryEvents.eventType, [
+              "email.delivered",
+              "email.bounced",
+              "email.complained",
+              "email.suppressed",
+            ]),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (
+      !canManuallyRetry(row, {
+        suppressed: Boolean(suppression),
+        blockingDeliveryEvent: blockingEvent?.eventType,
+      })
+    )
+      throw new Error("This email is not eligible for retry.");
+
     const updated = await tx
       .update(emailOutbox)
       .set({
@@ -178,6 +230,9 @@ export async function getAssessmentReceiptStatus(reference: string) {
         createdAt: emailOutbox.createdAt,
         lastAttemptAt: emailOutbox.lastAttemptAt,
         sentAt: emailOutbox.sentAt,
+        lastErrorCode: emailOutbox.lastErrorCode,
+        providerMessageId: emailOutbox.providerMessageId,
+        snapshotAddress: emailOutbox.recipientEmail,
       })
       .from(emailOutbox)
       .where(
@@ -189,8 +244,8 @@ export async function getAssessmentReceiptStatus(reference: string) {
       .limit(1)
   )[0];
   if (!row) return null;
-  const delivery = (
-    await db
+  const [delivery, delivered] = await Promise.all([
+    db
       .select({
         eventType: emailDeliveryEvents.eventType,
         occurredAt: emailDeliveryEvents.occurredAt,
@@ -201,26 +256,91 @@ export async function getAssessmentReceiptStatus(reference: string) {
         eq(emailDeliveryEvents.emailOutboxId, emailOutbox.id),
       )
       .where(eq(emailOutbox.emailReference, row.emailReference))
+      .orderBy(
+        desc(emailDeliveryEvents.occurredAt),
+        desc(emailDeliveryEvents.id),
+      )
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ occurredAt: emailDeliveryEvents.occurredAt })
+      .from(emailDeliveryEvents)
+      .innerJoin(
+        emailOutbox,
+        eq(emailDeliveryEvents.emailOutboxId, emailOutbox.id),
+      )
+      .where(
+        and(
+          eq(emailOutbox.emailReference, row.emailReference),
+          eq(emailDeliveryEvents.eventType, "email.delivered"),
+        ),
+      )
       .orderBy(desc(emailDeliveryEvents.occurredAt))
       .limit(1)
-  )[0];
+      .then((rows) => rows[0]),
+  ]);
+  const suppression = row.snapshotAddress
+    ? (
+        await db
+          .select({ id: emailSuppressions.id })
+          .from(emailSuppressions)
+          .where(
+            and(
+              eq(emailSuppressions.normalizedEmail, row.snapshotAddress),
+              isNull(emailSuppressions.clearedAt),
+            ),
+          )
+          .limit(1)
+      )[0]
+    : undefined;
   return {
-    ...row,
+    emailReference: row.emailReference,
+    status: row.status,
+    attemptCount: row.attemptCount,
+    createdAt: row.createdAt,
+    lastAttemptAt: row.lastAttemptAt,
+    sentAt: row.sentAt,
+    lastErrorCode: row.lastErrorCode,
     deliveryEvent: delivery?.eventType ?? null,
-    deliveryAt: delivery?.occurredAt ?? null,
+    deliveryAt: delivered?.occurredAt ?? null,
+    retryEligible: canManuallyRetry(row, {
+      suppressed: Boolean(suppression),
+      blockingDeliveryEvent: delivery?.eventType,
+    }),
   };
 }
 export async function getEmailMetrics() {
-  const db = getDb();
-  const [rows, delivery] = await Promise.all([
-    db
-      .select({ status: emailOutbox.status, count: count() })
-      .from(emailOutbox)
-      .groupBy(emailOutbox.status),
-    db
-      .select({ eventType: emailDeliveryEvents.eventType, count: count() })
-      .from(emailDeliveryEvents)
-      .groupBy(emailDeliveryEvents.eventType),
-  ]);
-  return { rows, delivery };
+  try {
+    const db = getDb();
+    const [rows, delivery, suppressions] = await Promise.all([
+      db
+        .select({ status: emailOutbox.status, count: count() })
+        .from(emailOutbox)
+        .groupBy(emailOutbox.status),
+      db
+        .select({
+          eventType: emailDeliveryEvents.eventType,
+          count: countDistinct(emailDeliveryEvents.emailOutboxId),
+        })
+        .from(emailDeliveryEvents)
+        .groupBy(emailDeliveryEvents.eventType),
+      db
+        .select({ count: count() })
+        .from(emailSuppressions)
+        .where(isNull(emailSuppressions.clearedAt)),
+    ]);
+    return {
+      rows,
+      delivery,
+      suppressedAddresses: Number(suppressions[0]?.count ?? 0),
+      operational: true,
+    };
+  } catch {
+    return {
+      rows: [],
+      delivery: [],
+      suppressedAddresses: 0,
+      operational: false,
+    };
+  }
 }

@@ -105,6 +105,14 @@ import {
   NOTE_REFERENCE_PATTERN,
   createInternalNoteReference,
 } from "../src/lib/admin/claims/references";
+import { evaluateCommunicationConfiguration } from "../src/lib/communications/config";
+import {
+  canManuallyRetry,
+  deliveryLabel,
+  failureLabel,
+  isSafeEmailReference,
+  receiptLabel,
+} from "../src/lib/communications/policy";
 import {
   futureResults,
   futureTestimonials,
@@ -2999,8 +3007,11 @@ test("communications operations use bounded, safe, permissioned inspection contr
   assert.match(page, /limit\(pageSize \+ 1\)/);
   assert.match(page, /desc\(emailOutbox\.createdAt\), desc\(emailOutbox\.id\)/);
   assert.match(page, /recipient: emailOutbox\.recipientReference/);
-  assert.doesNotMatch(page, /recipientEmail|payload: emailOutbox\.payload/);
-  assert.match(detail, /\^CB-EML-/);
+  assert.doesNotMatch(
+    page,
+    /recipientEmail:\s*emailOutbox\.recipientEmail|payload:\s*emailOutbox\.payload/,
+  );
+  assert.match(detail, /isSafeEmailReference\(emailReference\)/);
   assert.doesNotMatch(detail, /item\.payload|item\.recipientEmail/);
 });
 
@@ -3013,8 +3024,11 @@ test("manual communication retry is conditional, audited, and preserves the logi
     operations,
     /requirePermission\(clerkUserId, "SETTINGS_MANAGE"\)/,
   );
-  assert.match(operations, /\["FAILED", "RETRY"\]/);
+  assert.match(operations, /canManuallyRetry\(row/);
+  assert.match(operations, /\.for\("update"\)/);
   assert.match(operations, /eq\(emailOutbox\.status, row\.status\)/);
+  assert.match(operations, /emailSuppressions\.normalizedEmail/);
+  assert.match(operations, /emailDeliveryEvents\.eventType/);
   assert.match(operations, /COMMUNICATION_RETRY_REQUESTED/);
   assert.match(
     operations,
@@ -3032,12 +3046,329 @@ test("assessment receipt status and system health separate delivery confirmation
     path.resolve("src/app/admin/system/page.tsx"),
     "utf8",
   );
+  const health = fs.readFileSync(
+    path.resolve("src/components/admin/communications-health.tsx"),
+    "utf8",
+  );
+  const configuration = fs.readFileSync(
+    path.resolve("src/lib/communications/config.ts"),
+    "utf8",
+  );
   assert.match(
     receipt,
     /Sent means the provider accepted the request\. Delivered requires/,
   );
   assert.match(receipt, /deliveryAt/);
-  assert.match(system, /RESEND_WEBHOOK_SECRET/);
-  assert.match(system, /Transactional email delivery is currently inactive/);
+  assert.match(system, /CommunicationsHealth/);
+  assert.match(configuration, /RESEND_WEBHOOK_SECRET/);
+  assert.match(health, /Transactional email delivery is inactive/);
   assert.doesNotMatch(system, /process\.env\.RESEND_API_KEY\s*}/);
+});
+
+test("communication references reject raw IDs and tampered route values", () => {
+  assert.equal(isSafeEmailReference("CB-EML-12AB34CD"), true);
+  assert.equal(isSafeEmailReference("12ab34cd-1234-1234-1234-12ab34cd56ef"), false);
+  assert.equal(isSafeEmailReference("CB-EML-12AB34CD/../../admin"), false);
+  assert.equal(isSafeEmailReference("CB-EML-12ab34cd"), false);
+});
+
+test("manual retry allows only recoverable, unaccepted logical emails", () => {
+  const eligible = {
+    status: "FAILED",
+    attemptCount: "2",
+    lastErrorCode: "PROVIDER_NOT_CONFIGURED",
+    providerMessageId: null,
+    sentAt: null,
+  };
+  assert.equal(canManuallyRetry(eligible), true);
+  assert.equal(
+    canManuallyRetry({ ...eligible, status: "RETRY", lastErrorCode: "RESEND_503" }),
+    true,
+  );
+  assert.equal(
+    canManuallyRetry({ ...eligible, lastErrorCode: "NO_VERIFIED_EMAIL" }),
+    true,
+  );
+});
+
+test("manual retry denies every active, accepted, terminal, or exhausted state", () => {
+  const candidate = {
+    status: "FAILED",
+    attemptCount: "2",
+    lastErrorCode: "RESEND_503",
+    providerMessageId: null,
+    sentAt: null,
+  };
+  for (const status of ["PENDING", "PROCESSING", "SENT", "CANCELLED"])
+    assert.equal(canManuallyRetry({ ...candidate, status }), false, status);
+  assert.equal(canManuallyRetry({ ...candidate, attemptCount: "5" }), false);
+  assert.equal(canManuallyRetry({ ...candidate, attemptCount: "not-a-number" }), false);
+  assert.equal(
+    canManuallyRetry({ ...candidate, providerMessageId: "provider-message" }),
+    false,
+  );
+  assert.equal(canManuallyRetry({ ...candidate, sentAt: new Date() }), false);
+  assert.equal(
+    canManuallyRetry({ ...candidate, lastErrorCode: "RESEND_422" }),
+    false,
+  );
+});
+
+test("manual retry cannot bypass suppression or provider delivery outcomes", () => {
+  const candidate = {
+    status: "FAILED",
+    attemptCount: "1",
+    lastErrorCode: "RESEND_503",
+  };
+  assert.equal(canManuallyRetry(candidate, { suppressed: true }), false);
+  for (const event of [
+    "email.delivered",
+    "email.bounced",
+    "email.complained",
+    "email.suppressed",
+  ])
+    assert.equal(
+      canManuallyRetry(candidate, { blockingDeliveryEvent: event }),
+      false,
+      event,
+    );
+});
+
+test("receipt labels never infer delivery from provider acceptance", () => {
+  assert.equal(receiptLabel("PENDING", null), "Queued");
+  assert.equal(receiptLabel("PROCESSING", null), "Processing");
+  assert.equal(receiptLabel("RETRY", null), "Retrying");
+  assert.equal(receiptLabel("SENT", null), "Sent");
+  assert.equal(receiptLabel("SENT", "email.delivered"), "Delivered");
+  assert.equal(receiptLabel("FAILED", "email.bounced"), "Bounced");
+  assert.equal(receiptLabel("FAILED", "email.complained"), "Suppressed");
+  assert.equal(
+    receiptLabel("FAILED", null, "RECIPIENT_SUPPRESSED"),
+    "Suppressed",
+  );
+  assert.equal(receiptLabel("CANCELLED", null), "Cancelled");
+});
+
+test("delivery labels distinguish unconfirmed sent mail from delivered mail", () => {
+  assert.equal(deliveryLabel(null, "SENT"), "Awaiting confirmation");
+  assert.equal(deliveryLabel("email.delivered", "SENT"), "Delivered");
+  assert.equal(deliveryLabel("email.bounced", "FAILED"), "Bounced");
+  assert.equal(deliveryLabel("email.complained", "FAILED"), "Complained");
+});
+
+test("failure classifications are controlled and never expose provider bodies", () => {
+  assert.equal(failureLabel("RESEND_503"), "Provider unavailable");
+  assert.equal(failureLabel("RESEND_422"), "Provider rejected request");
+  assert.equal(failureLabel("NO_VERIFIED_EMAIL"), "No verified email");
+  assert.equal(failureLabel("unknown raw provider detail"), "Delivery failed");
+});
+
+test("communications configuration returns booleans without secret values", () => {
+  const providerSecret = "re_secret_value";
+  const webhookSecret = "whsec_secret_value";
+  const result = evaluateCommunicationConfiguration({
+    RESEND_API_KEY: providerSecret,
+    CLAIMS_BRIDGE_FROM_EMAIL: "Claims Bridge <service@example.test>",
+    CLAIMS_BRIDGE_REPLY_TO_EMAIL: "help@example.test",
+    RESEND_WEBHOOK_SECRET: webhookSecret,
+  });
+  assert.deepEqual(result, {
+    provider: true,
+    sender: true,
+    replyTo: true,
+    webhook: true,
+    deliveryActive: true,
+    deliveryTrackingActive: true,
+  });
+  assert.doesNotMatch(JSON.stringify(result), /secret_value/);
+});
+
+test("communications configuration reports each missing dependency independently", () => {
+  assert.deepEqual(evaluateCommunicationConfiguration({}), {
+    provider: false,
+    sender: false,
+    replyTo: false,
+    webhook: false,
+    deliveryActive: false,
+    deliveryTrackingActive: false,
+  });
+  const providerOnly = evaluateCommunicationConfiguration({ RESEND_API_KEY: "configured" });
+  assert.equal(providerOnly.provider, true);
+  assert.equal(providerOnly.sender, false);
+  assert.equal(providerOnly.deliveryActive, false);
+  assert.equal(
+    evaluateCommunicationConfiguration({
+      CLAIMS_BRIDGE_FROM_EMAIL: "service@example.test\r\nBcc: victim@example.test",
+    }).sender,
+    false,
+  );
+});
+
+test("canonical staff permissions make retry a super-admin operation today", () => {
+  assert.equal(hasPermissionForRole("SUPER_ADMIN", "SETTINGS_MANAGE"), true);
+  for (const role of [
+    "ADMIN",
+    "READ_ONLY",
+    "CASE_MANAGER",
+    "SUPPORT",
+    "EVIDENCE_REVIEWER",
+  ] as const)
+    assert.equal(hasPermissionForRole(role, "SETTINGS_MANAGE"), false, role);
+});
+
+test("communications filters and pagination are canonical and stable", () => {
+  const page = fs.readFileSync(
+    path.resolve("src/app/admin/communications/page.tsx"),
+    "utf8",
+  );
+  assert.match(page, /Object\.hasOwn\(communicationEvents, query\.event\)/);
+  assert.match(page, /valid\(query\.status, statuses\)/);
+  assert.match(page, /valid\(query\.audience, audiences\)/);
+  assert.match(page, /valid\(query\.delivery, deliveryFilters\)/);
+  assert.match(page, /Math\.min\(parsed, 1000\)/);
+  assert.match(page, /\.limit\(pageSize \+ 1\)/);
+  assert.match(page, /\.offset\(\(page - 1\) \* pageSize\)/);
+});
+
+test("communication detail and retry action accept only the safe reference", () => {
+  const detail = fs.readFileSync(
+    path.resolve("src/app/admin/communications/[emailReference]/page.tsx"),
+    "utf8",
+  );
+  const action = fs.readFileSync(
+    path.resolve("src/app/admin/communications-actions.ts"),
+    "utf8",
+  );
+  assert.match(detail, /isSafeEmailReference\(emailReference\)/);
+  assert.doesNotMatch(detail, /payload:\s*emailOutbox\.payload/);
+  assert.doesNotMatch(detail, /providerMessageId[^\n]*<|recipientEmail[^\n]*</);
+  assert.match(action, /key !== "emailReference"/);
+  assert.doesNotMatch(action, /formData\.get\("(?:recipient|payload|template|provider)/);
+});
+
+test("retry mutation preserves snapshot, template, payload, dedupe, and history", () => {
+  const operations = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-operations.ts"),
+    "utf8",
+  );
+  const retryMutation = operations.slice(
+    operations.indexOf("const updated = await tx"),
+    operations.indexOf("await recordStaffAuditEvent"),
+  );
+  assert.doesNotMatch(
+    retryMutation,
+    /recipientEmail|recipientReference|templateKey|templateVersion|payload|dedupeKey|providerMessageId|sentAt/,
+  );
+  assert.match(retryMutation, /status: "PENDING"/);
+  assert.match(retryMutation, /processingStartedAt: null/);
+});
+
+test("retry audit metadata contains references only and is transaction-coupled", () => {
+  const operations = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-operations.ts"),
+    "utf8",
+  );
+  assert.match(operations, /db\.transaction\(async \(tx\)/);
+  assert.match(operations, /recordStaffAuditEvent\(tx/);
+  assert.match(operations, /COMMUNICATION_RETRY_REQUESTED/);
+  const auditStart = operations.indexOf("recordStaffAuditEvent(tx");
+  const auditEnd = operations.indexOf("return updated[0]", auditStart);
+  assert.doesNotMatch(
+    operations.slice(auditStart, auditEnd),
+    /recipientEmail|payload|providerMessageId|clerkUserId|lastErrorCode/,
+  );
+});
+
+test("concurrent retry requests permit one locked transition and one audit", () => {
+  const operations = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-operations.ts"),
+    "utf8",
+  );
+  const retryStart = operations.indexOf("export async function retryEmailForStaff");
+  const retryEnd = operations.indexOf(
+    "export async function getAssessmentReceiptStatus",
+    retryStart,
+  );
+  const retry = operations.slice(retryStart, retryEnd);
+  assert.match(retry, /db\.transaction\(async \(tx\)/);
+  assert.match(retry, /\.for\("update"\)/);
+  assert.match(retry, /eq\(emailOutbox\.status, row\.status\)/);
+  assert.match(retry, /if \(!updated\[0\]\)/);
+  assert.equal(retry.match(/COMMUNICATION_RETRY_REQUESTED/g)?.length, 1);
+  assert.ok(
+    retry.indexOf("if (!updated[0])") <
+      retry.indexOf("COMMUNICATION_RETRY_REQUESTED"),
+  );
+});
+
+test("both assessment branches render the shared receipt and retry linkage", () => {
+  const assessment = fs.readFileSync(
+    path.resolve("src/app/admin/assessments/[assessmentReference]/page.tsx"),
+    "utf8",
+  );
+  const receipt = fs.readFileSync(
+    path.resolve("src/components/admin/assessment-receipt-status.tsx"),
+    "utf8",
+  );
+  assert.equal(
+    assessment.match(/<AssessmentReceiptStatus/g)?.length,
+    2,
+  );
+  assert.match(receipt, /SETTINGS_MANAGE/);
+  assert.match(receipt, /RetryCommunicationButton/);
+  assert.match(receipt, /\/admin\/communications\/\$\{receipt\.emailReference\}/);
+});
+
+test("communications metrics are aggregate queries and queue failure is explicit", () => {
+  const operations = fs.readFileSync(
+    path.resolve("src/lib/communications/staff-operations.ts"),
+    "utf8",
+  );
+  assert.match(operations, /groupBy\(emailOutbox\.status\)/);
+  assert.match(operations, /countDistinct\(emailDeliveryEvents\.emailOutboxId\)/);
+  assert.match(operations, /groupBy\(emailDeliveryEvents\.eventType\)/);
+  assert.match(operations, /operational: false/);
+  assert.doesNotMatch(operations, /\.select\(\)\.from\(emailOutbox\)/);
+});
+
+test("system communications health is presence-only and secret-safe", () => {
+  const configuration = fs.readFileSync(
+    path.resolve("src/lib/communications/config.ts"),
+    "utf8",
+  );
+  const health = fs.readFileSync(
+    path.resolve("src/components/admin/communications-health.tsx"),
+    "utf8",
+  );
+  const serverConfiguration = fs.readFileSync(
+    path.resolve("src/lib/communications/server-config.ts"),
+    "utf8",
+  );
+  assert.match(configuration, /CLAIMS_BRIDGE_REPLY_TO_EMAIL/);
+  assert.match(health, /Database queue/);
+  assert.match(health, /External delivery/);
+  assert.match(health, /Some transactional communications require attention/);
+  assert.doesNotMatch(health, /RESEND_API_KEY|RESEND_WEBHOOK_SECRET|DATABASE_URL/);
+  assert.doesNotMatch(configuration, /console\.|return\s+env\.|apiKey:/);
+  assert.match(serverConfiguration, /import "server-only"/);
+  assert.doesNotMatch(serverConfiguration, /console\.|return\s+process\.env/);
+});
+
+test("communications table and controls have responsive and accessible boundaries", () => {
+  const page = fs.readFileSync(
+    path.resolve("src/app/admin/communications/page.tsx"),
+    "utf8",
+  );
+  const styles = fs.readFileSync(path.resolve("src/app/globals.css"), "utf8");
+  const retry = fs.readFileSync(
+    path.resolve("src/components/admin/retry-communication-button.tsx"),
+    "utf8",
+  );
+  assert.match(page, /<table>/);
+  assert.match(page, /<th>/);
+  assert.match(page, /aria-label="Filter communications"/);
+  assert.match(styles, /\.admin-table-wrap[^}]*overflow-x:\s*auto/);
+  assert.match(retry, /<button/);
+  assert.match(retry, /aria-label=\{`Retry communication/);
+  assert.match(retry, /aria-live="polite"/);
 });

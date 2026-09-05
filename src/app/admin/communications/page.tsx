@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { AdminAccessDenied } from "@/components/admin/admin-access-denied";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
@@ -8,18 +8,21 @@ import { getDb } from "@/lib/db";
 import {
   emailDeliveryEvents,
   emailOutbox,
+  emailSuppressions,
 } from "@/lib/db/schema/communications";
 import { getCurrentStaffContext } from "@/lib/staff/request";
 
-const statuses = [
-  "PENDING",
-  "PROCESSING",
-  "RETRY",
-  "SENT",
-  "FAILED",
-  "CANCELLED",
-] as const;
-const audiences = ["CLIENT", "STAFF", "PRE_ACCOUNT"] as const;
+import {
+  canManuallyRetry,
+  communicationAudiences as audiences,
+  deliveryFilters,
+  deliveryLabel,
+  failureLabel,
+  outboxStatuses as statuses,
+} from "@/lib/communications/policy";
+import { communicationEvents } from "@/lib/communications/registry";
+import { getEmailMetrics } from "@/lib/communications/staff-operations";
+import { CommunicationsHealth } from "@/components/admin/communications-health";
 const pageSize = 25;
 
 function valid<T extends readonly string[]>(
@@ -41,6 +44,7 @@ export default async function CommunicationsPage({
     status?: string;
     audience?: string;
     event?: string;
+    delivery?: string;
     page?: string;
   }>;
 }) {
@@ -50,19 +54,39 @@ export default async function CommunicationsPage({
   const query = await searchParams;
   const status = valid(query.status, statuses);
   const audience = valid(query.audience, audiences);
-  const event = query.event?.match(/^[A-Z_]{3,80}$/) ? query.event : undefined;
+  const event =
+    query.event && Object.hasOwn(communicationEvents, query.event)
+      ? query.event
+      : undefined;
+  const deliveryState = valid(query.delivery, deliveryFilters);
   const parsed = Number.parseInt(query.page ?? "1", 10);
-  const page = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  const page = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 1000) : 1;
   const db = getDb();
-  const [outboxMetrics, deliveryMetrics, rows] = await Promise.all([
-    db
-      .select({ status: emailOutbox.status, count: count() })
-      .from(emailOutbox)
-      .groupBy(emailOutbox.status),
-    db
-      .select({ status: emailDeliveryEvents.eventType, count: count() })
-      .from(emailDeliveryEvents)
-      .groupBy(emailDeliveryEvents.eventType),
+  const latestDeliveryEvent = sql<string | null>`(
+    select ${emailDeliveryEvents.eventType}
+    from ${emailDeliveryEvents}
+    where ${emailDeliveryEvents.emailOutboxId} = ${emailOutbox.id}
+    order by ${emailDeliveryEvents.occurredAt} desc, ${emailDeliveryEvents.id} desc
+    limit 1
+  )`;
+  const activeSuppression = sql<boolean>`exists (
+    select 1 from ${emailSuppressions}
+    where ${emailSuppressions.normalizedEmail} = ${emailOutbox.recipientEmail}
+      and ${emailSuppressions.clearedAt} is null
+  )`;
+  const deliveryCondition =
+    deliveryState === "UNCONFIRMED"
+      ? sql`not exists (
+          select 1 from ${emailDeliveryEvents}
+          where ${emailDeliveryEvents.emailOutboxId} = ${emailOutbox.id}
+        ) and not ${activeSuppression}`
+      : deliveryState === "SUPPRESSED"
+        ? sql`(${latestDeliveryEvent} = 'email.suppressed' or ${activeSuppression})`
+        : deliveryState
+          ? sql`${latestDeliveryEvent} = ${`email.${deliveryState.toLowerCase()}`}`
+          : undefined;
+  const [metrics, rows] = await Promise.all([
+    getEmailMetrics(),
     db
       .select({
         reference: emailOutbox.emailReference,
@@ -71,20 +95,22 @@ export default async function CommunicationsPage({
         recipient: emailOutbox.recipientReference,
         template: emailOutbox.templateKey,
         status: emailOutbox.status,
-        attempts: emailOutbox.attemptCount,
+        attemptCount: emailOutbox.attemptCount,
         createdAt: emailOutbox.createdAt,
         lastAttemptAt: emailOutbox.lastAttemptAt,
         sentAt: emailOutbox.sentAt,
-        failure: emailOutbox.lastErrorCode,
+        lastErrorCode: emailOutbox.lastErrorCode,
+        providerMessageId: emailOutbox.providerMessageId,
+        deliveryEvent: latestDeliveryEvent,
+        suppressed: activeSuppression,
       })
       .from(emailOutbox)
       .where(
         and(
-          ...([
-            status ? eq(emailOutbox.status, status) : undefined,
-            audience ? eq(emailOutbox.recipientType, audience) : undefined,
-            event ? eq(emailOutbox.eventKey, event) : undefined,
-          ].filter(Boolean) as never[]),
+          status ? eq(emailOutbox.status, status) : undefined,
+          audience ? eq(emailOutbox.recipientType, audience) : undefined,
+          event ? eq(emailOutbox.eventKey, event) : undefined,
+          deliveryCondition,
         ),
       )
       .orderBy(desc(emailOutbox.createdAt), desc(emailOutbox.id))
@@ -92,13 +118,10 @@ export default async function CommunicationsPage({
       .offset((page - 1) * pageSize),
   ]);
   const counts = new Map(
-    outboxMetrics.map((item) => [item.status, Number(item.count)]),
+    metrics.rows.map((item) => [item.status, Number(item.count)]),
   );
   const delivery = new Map(
-    deliveryMetrics.map((item) => [item.status, Number(item.count)]),
-  );
-  const providerConfigured = Boolean(
-    process.env.RESEND_API_KEY && process.env.CLAIMS_BRIDGE_FROM_EMAIL,
+    metrics.delivery.map((item) => [item.eventType, Number(item.count)]),
   );
   const retryAllowed = context.permissions.includes("SETTINGS_MANAGE");
   const items = rows.slice(0, pageSize);
@@ -106,6 +129,7 @@ export default async function CommunicationsPage({
   if (status) params.set("status", status);
   if (audience) params.set("audience", audience);
   if (event) params.set("event", event);
+  if (deliveryState) params.set("delivery", deliveryState);
   const href = (target: number) => {
     const next = new URLSearchParams(params);
     next.set("page", String(target));
@@ -116,19 +140,18 @@ export default async function CommunicationsPage({
       <AdminPageHeader
         eyebrow="Operations / communications"
         title="Transactional communications"
-        description={
-          providerConfigured
-            ? "Transactional delivery is configured. Provider delivery confirmation remains separate from sent state."
-            : "Transactional email delivery is currently inactive because the provider is not configured."
-        }
+        description="Inspect the durable queue and confirmed provider delivery state."
       />
+      <CommunicationsHealth metrics={metrics} />
       <section className="admin-status-grid">
         <h2>Outbox</h2>
         <dl>
           {statuses.map((item) => (
             <div key={item}>
               <dt>{item}</dt>
-              <dd>{counts.get(item) ?? 0}</dd>
+              <dd>
+                {metrics.operational ? (counts.get(item) ?? 0) : "Unavailable"}
+              </dd>
             </div>
           ))}
         </dl>
@@ -139,7 +162,15 @@ export default async function CommunicationsPage({
           {["delivered", "bounced", "complained", "suppressed"].map((item) => (
             <div key={item}>
               <dt>{item}</dt>
-              <dd>{delivery.get(`email.${item}`) ?? 0}</dd>
+              <dd>
+                {item === "suppressed"
+                  ? metrics.operational
+                    ? metrics.suppressedAddresses
+                    : "Unavailable"
+                  : metrics.operational
+                    ? (delivery.get(`email.${item}`) ?? 0)
+                    : "Unavailable"}
+              </dd>
             </div>
           ))}
         </dl>
@@ -169,14 +200,23 @@ export default async function CommunicationsPage({
         </label>
         <label>
           Event
-          <input
-            name="event"
-            defaultValue={event ?? ""}
-            maxLength={80}
-            placeholder="CLAIM_CREATED"
-          />
+          <select name="event" defaultValue={event ?? ""}>
+            <option value="">Any</option>
+            {Object.keys(communicationEvents).map((key) => (
+              <option key={key}>{key}</option>
+            ))}
+          </select>
         </label>
-        <button className="button button--small button--primary">
+        <label>
+          Delivery state
+          <select name="delivery" defaultValue={deliveryState ?? ""}>
+            <option value="">Any</option>
+            {deliveryFilters.map((state) => (
+              <option key={state}>{state}</option>
+            ))}
+          </select>
+        </label>
+        <button className="button button--small button--primary" type="submit">
           Apply filters
         </button>
       </form>
@@ -191,6 +231,7 @@ export default async function CommunicationsPage({
                 <th>Recipient reference</th>
                 <th>Template</th>
                 <th>Status</th>
+                <th>Delivery</th>
                 <th>Attempts</th>
                 <th>Created</th>
                 <th>Last attempt</th>
@@ -217,20 +258,28 @@ export default async function CommunicationsPage({
                   <td>{item.template}</td>
                   <td>
                     {item.status}
-                    {item.failure ? (
+                    {item.lastErrorCode ? (
                       <>
                         <br />
-                        <small>Delivery failed</small>
+                        <small>{failureLabel(item.lastErrorCode)}</small>
                       </>
                     ) : null}
                   </td>
-                  <td>{item.attempts}</td>
+                  <td>
+                    {item.suppressed
+                      ? "Suppressed"
+                      : deliveryLabel(item.deliveryEvent, item.status)}
+                  </td>
+                  <td>{item.attemptCount}</td>
                   <td>{item.createdAt.toLocaleString("en-GB")}</td>
                   <td>{item.lastAttemptAt?.toLocaleString("en-GB") ?? "—"}</td>
                   <td>{item.sentAt?.toLocaleString("en-GB") ?? "—"}</td>
                   <td>
                     {retryAllowed &&
-                    ["FAILED", "RETRY"].includes(item.status) ? (
+                    canManuallyRetry(item, {
+                      suppressed: item.suppressed,
+                      blockingDeliveryEvent: item.deliveryEvent,
+                    }) ? (
                       <RetryCommunicationButton
                         emailReference={item.reference}
                       />

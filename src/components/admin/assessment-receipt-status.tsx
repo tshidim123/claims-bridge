@@ -1,68 +1,80 @@
-import { getAssessmentReceiptStatus } from "@/lib/communications/staff-operations";
+import Link from "next/link";
 
-function label(status: string, delivery: string | null) {
-  if (delivery?.includes("delivered")) return "Delivered";
-  if (delivery?.includes("bounced")) return "Bounced";
-  if (delivery?.includes("complained")) return "Complained";
-  return (
-    (
-      {
-        PENDING: "Queued",
-        PROCESSING: "Processing",
-        RETRY: "Retrying",
-        SENT: "Sent",
-        FAILED: "Failed",
-        CANCELLED: "Cancelled",
-      } as Record<string, string>
-    )[status] ?? status
-  );
-}
+import { RetryCommunicationButton } from "@/components/admin/retry-communication-button";
+import { getAssessmentReceiptStatus } from "@/lib/communications/staff-operations";
+import { receiptLabel } from "@/lib/communications/policy";
+import { getCurrentStaffContext } from "@/lib/staff/request";
 
 export async function AssessmentReceiptStatus({
   assessmentReference,
 }: {
   assessmentReference: string;
 }) {
-  const receipt = await getAssessmentReceiptStatus(assessmentReference);
+  const [receipt, context] = await Promise.all([
+    getAssessmentReceiptStatus(assessmentReference),
+    getCurrentStaffContext(),
+  ]);
   if (!receipt) return null;
+  const canViewCommunications =
+    context?.permissions.includes("SETTINGS_VIEW") ?? false;
+  const canRetry =
+    receipt.retryEligible &&
+    (context?.permissions.includes("SETTINGS_MANAGE") ?? false);
   return (
     <section className="admin-control-panel">
       <p className="eyebrow">Assessment confirmation email</p>
-      <h2>{label(receipt.status, receipt.deliveryEvent)}</h2>
+      <h2>
+        {receiptLabel(
+          receipt.status,
+          receipt.deliveryEvent,
+          receipt.lastErrorCode,
+        )}
+      </h2>
       <dl className="admin-case-context">
-        <span>
-          <small>Email reference</small>
-          <strong>{receipt.emailReference}</strong>
-        </span>
-        <span>
-          <small>Attempts</small>
-          <strong>{receipt.attemptCount}</strong>
-        </span>
-        <span>
-          <small>Queued</small>
-          <strong>{receipt.createdAt.toLocaleString("en-GB")}</strong>
-        </span>
-        <span>
-          <small>Last attempt</small>
-          <strong>
+        <div>
+          <dt>Email reference</dt>
+          <dd>
+            {canViewCommunications ? (
+              <Link href={`/admin/communications/${receipt.emailReference}`}>
+                {receipt.emailReference}
+              </Link>
+            ) : (
+              receipt.emailReference
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Attempts</dt>
+          <dd>{receipt.attemptCount}</dd>
+        </div>
+        <div>
+          <dt>Queued</dt>
+          <dd>{receipt.createdAt.toLocaleString("en-GB")}</dd>
+        </div>
+        <div>
+          <dt>Last attempt</dt>
+          <dd>
             {receipt.lastAttemptAt?.toLocaleString("en-GB") ?? "—"}
-          </strong>
-        </span>
-        <span>
-          <small>Sent</small>
-          <strong>{receipt.sentAt?.toLocaleString("en-GB") ?? "—"}</strong>
-        </span>
-        <span>
-          <small>Delivery confirmation</small>
-          <strong>
+          </dd>
+        </div>
+        <div>
+          <dt>Sent</dt>
+          <dd>{receipt.sentAt?.toLocaleString("en-GB") ?? "—"}</dd>
+        </div>
+        <div>
+          <dt>Delivery confirmation</dt>
+          <dd>
             {receipt.deliveryAt?.toLocaleString("en-GB") ?? "Not confirmed"}
-          </strong>
-        </span>
+          </dd>
+        </div>
       </dl>
       <p>
         Sent means the provider accepted the request. Delivered requires a
         separate provider delivery event.
       </p>
+      {canRetry ? (
+        <RetryCommunicationButton emailReference={receipt.emailReference} />
+      ) : null}
     </section>
   );
 }
