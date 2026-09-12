@@ -1,19 +1,21 @@
 import "server-only";
 
 import { render as renderEmail } from "@react-email/render";
-import { and, eq, inArray, isNull, lte } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { emailOutbox, emailSuppressions } from "@/lib/db/schema/communications";
+import { emailOutbox } from "@/lib/db/schema/communications";
 import { communicationEvents, type CommunicationEventKey } from "./registry";
-import { resolveEmailRecipient } from "./recipients";
+import {
+  canonicalEmailOrigin,
+  emailDestination,
+  normalizeMailbox,
+} from "./config";
 
-const MAX_ATTEMPTS = 5;
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const siteUrl = () =>
-  (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(
-    /\/$/,
-    "",
-  );
+const siteUrl = () => {
+  const origin = canonicalEmailOrigin(process.env);
+  if (!origin) throw new Error("Canonical email origin unavailable.");
+  return origin;
+};
 
 export type AssessmentReceiptPayload = {
   assessmentReference: string;
@@ -75,6 +77,20 @@ export type ClientActionPayload = {
   description: string;
   dueDate?: string | null;
   actionUrl?: string;
+  stage?: string;
+  progress?: string;
+};
+export type ServiceUpdatePayload = {
+  reference: string;
+  title: string;
+  body: string;
+  nextStep: string;
+  destination: string;
+  cta:
+    | "START MY CLAIM"
+    | "REVIEW MY ASSESSMENT"
+    | "VIEW MY CLAIM"
+    | "OPEN MY ACCOUNT";
 };
 export type StaffOperationalPayload = {
   reference: string;
@@ -82,6 +98,7 @@ export type StaffOperationalPayload = {
   destination: string;
   subject: string;
   preheader: string;
+  occurredAt?: string;
 };
 export type EmailPayload =
   | AssessmentReceiptPayload
@@ -94,6 +111,7 @@ export type EmailPayload =
   | AssessmentAttachedPayload
   | SecureMessagePayload
   | ClientActionPayload
+  | ServiceUpdatePayload
   | StaffOperationalPayload
   | Record<string, never>;
 export type EmailRecipient =
@@ -120,13 +138,12 @@ function reference() {
   return `CB-EML-${crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
 }
 export function normalizeEmailAddress(value: string) {
-  const email = value.trim().toLowerCase();
-  if (!emailPattern.test(email) || /[\r\n]/.test(email))
-    throw new Error("Invalid email recipient.");
+  const email = normalizeMailbox(value);
+  if (!email) throw new Error("Invalid email recipient.");
   return email;
 }
 function safeUrl(path: string | undefined, fallback: string) {
-  return `${siteUrl()}${path?.startsWith("/") ? path : fallback}`;
+  return emailDestination(path, fallback, process.env);
 }
 
 const colour = {
@@ -152,6 +169,8 @@ function Shell({
           backgroundColor: "#edf2f7",
           color: colour.ink,
           fontFamily: "Arial, Helvetica, sans-serif",
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
         }}
       >
         <div
@@ -167,7 +186,8 @@ function Shell({
         <main
           style={{
             width: "100%",
-            maxWidth: 620,
+            maxWidth: 600,
+            boxSizing: "border-box",
             margin: "28px auto",
             backgroundColor: "#fff",
             borderRadius: 18,
@@ -401,6 +421,7 @@ function AssessmentEmail({ payload }: { payload: AssessmentReceiptPayload }) {
         label="Assessment reference"
         value={payload.assessmentReference}
       />
+      <Checklist title="Your preliminary result" items={[payload.outcome]} />
       <Checklist
         title="Documents to prepare"
         items={
@@ -413,14 +434,18 @@ function AssessmentEmail({ payload }: { payload: AssessmentReceiptPayload }) {
               ]
         }
       />
-      <PrimaryButton href={payload.continuationUrl}>
-        START CLAIM NOW
+      <PrimaryButton
+        href={safeUrl(payload.continuationUrl, "/account/assessment")}
+      >
+        START MY CLAIM
       </PrimaryButton>
       <Timeline
         items={[
-          "Create or sign in to your secure account.",
-          "Review the saved assessment and choose whether to start a claim.",
-          "Upload supporting evidence when requested.",
+          "Create or sign into your Claims Bridge account.",
+          "Your saved assessment is linked securely.",
+          "Review your assessment.",
+          "Start your claim when you are ready, using the separate confirmation in your account.",
+          "Follow requested actions and document guidance through your secure portal.",
         ]}
       />
       <SecurityNotice>
@@ -531,13 +556,13 @@ function EvidenceRequestedEmail({
       <Timeline
         items={[
           "Open the secure evidence request.",
-          "Upload the relevant supporting information.",
+          "Prepare the requested records and follow the guidance shown in your account. Secure uploads are not yet available.",
           "We will update your account when the review can continue.",
         ]}
       />
       <SecurityNotice>
-        For your privacy, do not reply with documents to this email. Upload
-        evidence only through your secure Claims Bridge account.
+        For your privacy, do not send sensitive documents as email attachments.
+        Keep them safely until secure submission is available in your account.
       </SecurityNotice>
     </Shell>
   );
@@ -705,6 +730,13 @@ function ClientActionEmail({ payload }: { payload: ClientActionPayload }) {
         Please complete the requested step in your secure Claims Bridge account.
       </Hero>
       <ReferenceCard label="Claim reference" value={payload.claimReference} />
+      {payload.stage && (
+        <p>
+          <strong>Current stage: </strong>
+          {payload.stage}
+        </p>
+      )}
+      {payload.progress && <p>{payload.progress}</p>}
       <Checklist
         title="Required action"
         items={[
@@ -713,7 +745,14 @@ function ClientActionEmail({ payload }: { payload: ClientActionPayload }) {
           ...(payload.dueDate ? [`Due date: ${payload.dueDate}`] : []),
         ]}
       />
-      <PrimaryButton href={href}>VIEW REQUIRED ACTION</PrimaryButton>
+      <PrimaryButton href={href}>COMPLETE NEXT STEP</PrimaryButton>
+      <Timeline
+        items={[
+          "Review the instructions in your claim.",
+          "Complete the requested step or use secure messages if you need help.",
+          "Claims Bridge will review your response as part of the current stage.",
+        ]}
+      />
       <SecurityNotice>
         Only the secure account contains the current action details and any
         updates.
@@ -734,6 +773,7 @@ function StaffOperationalEmail({
         {payload.summary}
       </Hero>
       <ReferenceCard label="Reference" value={payload.reference} />
+      {payload.occurredAt && <p>Event recorded: {payload.occurredAt}</p>}
       <PrimaryButton href={href}>OPEN IN CLAIMS BRIDGE</PrimaryButton>
       <SecurityNotice>
         View sensitive client details only in the authenticated Claims Bridge
@@ -744,7 +784,34 @@ function StaffOperationalEmail({
   );
 }
 
+function ServiceUpdateEmail({ payload }: { payload: ServiceUpdatePayload }) {
+  return (
+    <Shell preheader={payload.nextStep}>
+      <Hero eyebrow="Claims Bridge service update" title={payload.title}>
+        <span style={{ whiteSpace: "pre-line" }}>{payload.body}</span>
+      </Hero>
+      <ReferenceCard label="Reference" value={payload.reference} />
+      <Checklist title="What happens next" items={[payload.nextStep]} />
+      <PrimaryButton href={safeUrl(payload.destination, "/account")}>
+        {payload.cta}
+      </PrimaryButton>
+      <SecurityNotice>
+        Use your secure Claims Bridge account for personal information. Never
+        send passwords or sensitive documents by email.
+      </SecurityNotice>
+    </Shell>
+  );
+}
+
 type RenderableCommunicationEmailInput =
+  | {
+      event:
+        | "START_CLAIM_REMINDER"
+        | "ASSESSMENT_FOLLOW_UP"
+        | "GENERAL_SERVICE_UPDATE";
+      payload: ServiceUpdatePayload;
+    }
+  | { event: "NEW_CLIENT"; payload: StaffOperationalPayload }
   | { event: "ASSESSMENT_RECEIVED"; payload: AssessmentReceiptPayload }
   | { event: "WELCOME"; payload: WelcomePayload }
   | { event: "CLAIM_CREATED"; payload: ClaimCreatedPayload }
@@ -785,6 +852,17 @@ function unsupportedTemplate(): never {
 
 export async function renderCommunicationEmail(input: CommunicationEmailInput) {
   switch (input.event) {
+    case "START_CLAIM_REMINDER":
+    case "ASSESSMENT_FOLLOW_UP":
+    case "GENERAL_SERVICE_UPDATE": {
+      const item = input.payload;
+      return {
+        subject: item.title,
+        preheader: item.nextStep,
+        html: await renderEmail(<ServiceUpdateEmail payload={item} />),
+        text: `${item.title}\nReference: ${item.reference}\n\n${item.body}\n\nWhat happens next: ${item.nextStep}\n\n${item.cta}: ${safeUrl(item.destination, "/account")}\n\nNever email passwords or sensitive documents. Support: ${siteUrl()}/contact`,
+      };
+    }
     case "ASSESSMENT_RECEIVED": {
       const item = input.payload;
       return {
@@ -792,7 +870,7 @@ export async function renderCommunicationEmail(input: CommunicationEmailInput) {
         preheader:
           "Your assessment has been saved. Review your result and prepare the documents needed to start your claim.",
         html: await renderEmail(<AssessmentEmail payload={item} />),
-        text: `We’ve received your eligibility assessment.\nAssessment reference: ${item.assessmentReference}\n\n${item.explanation}\n\nDocuments to prepare:\n${item.evidence.length ? item.evidence.map((entry) => `- ${entry.label}: ${entry.description}`).join("\n") : "- Review your saved assessment to see what supporting information may be useful."}\n\nStart claim: ${item.continuationUrl}\n\nSupport: ${siteUrl()}/contact`,
+        text: `We’ve received your eligibility assessment.\nAssessment reference: ${item.assessmentReference}\n\n${item.outcome}\n\n${item.explanation}\n\nDocuments to prepare:\n${item.evidence.length ? item.evidence.map((entry) => `- ${entry.label}: ${entry.description}`).join("\n") : "- Review your saved assessment to see what supporting information may be useful."}\n\nSTART MY CLAIM: ${safeUrl(item.continuationUrl, "/account/assessment")}\n\n1. Create or sign into your Claims Bridge account.\n2. Your saved assessment is linked securely.\n3. Review your assessment.\n4. Start your claim when ready with a separate confirmation.\n5. Follow requested actions and document guidance through your secure portal.\n\nAn assessment is not a claim and does not guarantee an outcome. Never email passwords or sensitive documents.\n\nSupport: ${siteUrl()}/contact`,
       };
     }
     case "WELCOME": {
@@ -830,7 +908,7 @@ export async function renderCommunicationEmail(input: CommunicationEmailInput) {
         preheader:
           "Review the supporting information requested for your claim.",
         html: await renderEmail(<EvidenceRequestedEmail payload={item} />),
-        text: `Evidence has been requested for claim ${item.claimReference}.\n\nRequested: ${item.title}\n${item.description}${item.dueDate ? `\nDue date: ${item.dueDate}` : ""}\n\nView the evidence request: ${url}\n\nSupport: ${siteUrl()}/contact`,
+        text: `Evidence has been requested for claim ${item.claimReference}.\n\nRequested: ${item.title}\n${item.description}${item.dueDate ? `\nDue date: ${item.dueDate}` : ""}\n\nView the evidence request: ${url}\n\nPrepare the requested records and follow your portal guidance. Secure uploads are not yet available. Keep documents safely and do not send sensitive attachments by email.\n\nSupport: ${siteUrl()}/contact`,
       };
     }
     case "CLAIM_STATUS_UPDATED": {
@@ -924,9 +1002,10 @@ export async function renderCommunicationEmail(input: CommunicationEmailInput) {
         subject: `Action needed on your Claims Bridge claim — ${item.claimReference}`,
         preheader: "Review the next step requested for your claim.",
         html: await renderEmail(<ClientActionEmail payload={item} />),
-        text: `Action needed for claim ${item.claimReference}.\n\n${item.title}\n${item.description}${item.dueDate ? `\nDue date: ${item.dueDate}` : ""}\n\nView required action: ${url}`,
+        text: `Action needed for claim ${item.claimReference}.${item.stage ? `\nCurrent stage: ${item.stage}` : ""}${item.progress ? `\n${item.progress}` : ""}\n\n${item.title}\n${item.description}${item.dueDate ? `\nDue date: ${item.dueDate}` : ""}\n\nCOMPLETE NEXT STEP: ${url}`,
       };
     }
+    case "NEW_CLIENT":
     case "NEW_PRE_ACCOUNT_ASSESSMENT":
     case "NEW_AUTHENTICATED_ASSESSMENT":
     case "NEW_CLAIM":
@@ -1009,130 +1088,8 @@ export async function enqueueEmail(input: EnqueueEmailInput) {
     )[0]
   );
 }
-async function deliver(record: typeof emailOutbox.$inferSelect) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.CLAIMS_BRIDGE_FROM_EMAIL;
-  if (!apiKey || !from)
-    return { kind: "temporary" as const, code: "PROVIDER_NOT_CONFIGURED" };
-  const resolved = record.recipientEmail
-    ? { ok: true as const, email: record.recipientEmail }
-    : await resolveEmailRecipient({
-        type: record.recipientType as "CLIENT" | "STAFF" | "PRE_ACCOUNT",
-        reference: record.recipientReference,
-      });
-  if (!resolved.ok)
-    return {
-      kind: resolved.retryable
-        ? ("temporary" as const)
-        : ("permanent" as const),
-      code: resolved.code,
-    };
-  const suppressed = (
-    await getDb()
-      .select()
-      .from(emailSuppressions)
-      .where(
-        and(
-          eq(emailSuppressions.normalizedEmail, resolved.email),
-          isNull(emailSuppressions.clearedAt),
-        ),
-      )
-      .limit(1)
-  )[0];
-  if (suppressed)
-    return { kind: "permanent" as const, code: "RECIPIENT_SUPPRESSED" };
-  if (!record.recipientEmail)
-    await getDb()
-      .update(emailOutbox)
-      .set({ recipientEmail: resolved.email, updatedAt: new Date() })
-      .where(eq(emailOutbox.id, record.id));
-  const message = await renderCommunicationEmail({
-    event: record.eventKey as CommunicationEventKey,
-    payload: record.payload as EmailPayload,
-  } as CommunicationEmailInput);
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [resolved.email],
-      reply_to: process.env.CLAIMS_BRIDGE_REPLY_TO_EMAIL || undefined,
-      subject: message.subject,
-      html: message.html,
-      text: message.text,
-    }),
-  });
-  const body = (await response.json().catch(() => ({}))) as { id?: string };
-  if (response.ok && body.id) return { kind: "sent" as const, id: body.id };
-  return {
-    kind:
-      response.status >= 400 && response.status < 500
-        ? ("permanent" as const)
-        : ("temporary" as const),
-    code: `RESEND_${response.status}`,
-  };
-}
+/** Compatibility entry point. Automation always uses the bounded batch processor. */
 export async function processNextEmail() {
-  const db = getDb();
-  const candidate = (
-    await db
-      .select()
-      .from(emailOutbox)
-      .where(
-        and(
-          inArray(emailOutbox.status, ["PENDING", "RETRY"]),
-          lte(emailOutbox.availableAt, new Date()),
-        ),
-      )
-      .limit(1)
-  )[0];
-  if (!candidate) return null;
-  const claimed = (
-    await db
-      .update(emailOutbox)
-      .set({
-        status: "PROCESSING",
-        processingStartedAt: new Date(),
-        lastAttemptAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(emailOutbox.id, candidate.id),
-          inArray(emailOutbox.status, ["PENDING", "RETRY"]),
-        ),
-      )
-      .returning()
-  )[0];
-  if (!claimed) return null;
-  const result = await deliver(claimed);
-  const attempts = Number(claimed.attemptCount) + 1;
-  const failed = result.kind === "permanent" || attempts >= MAX_ATTEMPTS;
-  return db
-    .update(emailOutbox)
-    .set(
-      result.kind === "sent"
-        ? {
-            status: "SENT",
-            attemptCount: String(attempts),
-            sentAt: new Date(),
-            providerMessageId: result.id,
-            lastErrorCode: null,
-            updatedAt: new Date(),
-          }
-        : {
-            status: failed ? "FAILED" : "RETRY",
-            attemptCount: String(attempts),
-            availableAt: new Date(
-              Date.now() + Math.min(3_600_000, 2 ** attempts * 60_000),
-            ),
-            failedAt: failed ? new Date() : null,
-            lastErrorCode: result.code,
-            updatedAt: new Date(),
-          },
-    )
-    .where(eq(emailOutbox.id, claimed.id));
+  const { processEmailBatch } = await import("./processor");
+  return processEmailBatch(1);
 }

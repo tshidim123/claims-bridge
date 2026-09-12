@@ -48,6 +48,32 @@ const staff = (
 });
 
 export const communicationEvents = {
+  START_CLAIM_REMINDER: client(
+    "SERVICE_UPDATE",
+    "ACCOUNT",
+    "/account/assessments",
+    true,
+    "important",
+  ),
+  ASSESSMENT_FOLLOW_UP: client(
+    "SERVICE_UPDATE",
+    "ACCOUNT",
+    "/account/assessments",
+    true,
+    "normal",
+  ),
+  GENERAL_SERVICE_UPDATE: client(
+    "SERVICE_UPDATE",
+    "ACCOUNT",
+    "/account",
+    true,
+    "normal",
+  ),
+  NEW_CLIENT: staff("STAFF_CLIENT", "CLIENTS", "/admin/clients", "important", {
+    subject: "New Claims Bridge client",
+    preheader: "A new client has completed account setup.",
+    dedupe: "STAFF_NEW_CLIENT:<client>:<staff>",
+  }),
   ASSESSMENT_RECEIVED: client(
     "ASSESSMENT_RECEIVED",
     "ACCOUNT",

@@ -18,6 +18,7 @@ export const deliveryFilters = [
 ] as const;
 
 export const maxDeliveryAttempts = 5;
+export const providerIdempotencyWindowMs = 23 * 60 * 60_000;
 
 const retryableFailureCodes = new Set([
   "PROVIDER_NOT_CONFIGURED",
@@ -25,6 +26,11 @@ const retryableFailureCodes = new Set([
   "CLIENT_IDENTITY_NOT_FOUND",
   "STAFF_IDENTITY_NOT_FOUND",
   "CLERK_USER_NOT_FOUND",
+  "IDENTITY_PROVIDER_TEMPORARY_FAILURE",
+  "PROVIDER_TEMPORARY_FAILURE",
+  "INVALID_PROVIDER_RESPONSE",
+  "PROCESSING_TEMPORARY_FAILURE",
+  "PROCESSING_LEASE_LOST",
 ]);
 
 const failureLabels: Readonly<Record<string, string>> = {
@@ -38,6 +44,14 @@ const failureLabels: Readonly<Record<string, string>> = {
   PROVIDER_NOT_CONFIGURED: "Provider unavailable",
   PROVIDER_FAILED: "Delivery failed",
   RETRY_LIMIT_REACHED: "Retry limit reached",
+  IDENTITY_PROVIDER_TEMPORARY_FAILURE: "Identity provider temporarily unavailable",
+  PROVIDER_TEMPORARY_FAILURE: "Provider temporarily unavailable",
+  INVALID_PROVIDER_RESPONSE: "Provider response unavailable",
+  PROCESSING_TEMPORARY_FAILURE: "Queue temporarily unavailable",
+  PROCESSING_LEASE_LOST: "Processing interrupted",
+  DELIVERY_UNCERTAIN: "Delivery uncertain — provider reconciliation required",
+  INVALID_EMAIL_REQUEST: "Communication requires technical review",
+  DEVELOPMENT_RECIPIENT_BLOCKED: "Development recipient not allowlisted",
   "email.bounced": "Recipient hard bounced",
   "email.complained": "Recipient complained",
   "email.suppressed": "Recipient suppressed",
@@ -61,6 +75,7 @@ export function canManuallyRetry(
     lastErrorCode: string | null;
     providerMessageId?: string | null;
     sentAt?: Date | null;
+    providerFirstAttemptAt?: Date | null;
   },
   options: {
     suppressed?: boolean;
@@ -82,6 +97,7 @@ export function canManuallyRetry(
     !providerConfirmed &&
     !record.providerMessageId &&
     !record.sentAt &&
+    (!record.providerFirstAttemptAt || Date.now() - record.providerFirstAttemptAt.getTime() < providerIdempotencyWindowMs) &&
     (record.status === "FAILED" || record.status === "RETRY") &&
     Number.isInteger(attempts) &&
     attempts >= 0 &&
@@ -97,11 +113,13 @@ export function receiptLabel(
 ) {
   if (
     errorCode === "RECIPIENT_SUPPRESSED" ||
+    errorCode === "email.complained" ||
+    errorCode === "email.suppressed" ||
     deliveryEvent === "email.suppressed" ||
     deliveryEvent === "email.complained"
   )
     return "Suppressed";
-  if (deliveryEvent === "email.bounced") return "Bounced";
+  if (deliveryEvent === "email.bounced" || errorCode === "email.bounced") return "Bounced";
   if (deliveryEvent === "email.delivered") return "Delivered";
   return (
     {

@@ -1,6 +1,8 @@
 import "server-only";
 
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { headers } from "next/headers";
+import { communicationPreviewEnabled } from "@/lib/communications/preview";
 
 import { getClientProfileSummaryByClerkId, getProfileCompletion } from "@/lib/clients/repository";
 
@@ -29,6 +31,9 @@ function initialsFor(value: string) {
 }
 
 export async function resolvePublicHeaderIdentity(): Promise<PublicHeaderIdentity> {
+  // Next may render the root not-found shell alongside a preview. It must stay identity-free too.
+  // This affects public-header presentation only; protected resources always authorize independently.
+  if (communicationPreviewEnabled(process.env) && (await headers()).get("x-claims-bridge-preview") === "1") return signedOutIdentity;
   const { userId } = await auth();
   if (!userId) return signedOutIdentity;
 

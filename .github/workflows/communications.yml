@@ -1,0 +1,51 @@
+name: Transactional communications queue
+
+on:
+  schedule:
+    - cron: "2-57/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: transactional-communications
+  cancel-in-progress: false
+
+jobs:
+  process:
+    # No checkout, dependency installation, production database access, or sending from CI.
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      COMMUNICATIONS_CRON_SECRET: ${{ secrets.COMMUNICATIONS_CRON_SECRET }}
+    steps:
+      - name: Invoke the bounded, authenticated application worker
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const { NEXT_PUBLIC_SITE_URL, COMMUNICATIONS_CRON_SECRET } = process.env;
+          if (!NEXT_PUBLIC_SITE_URL || !COMMUNICATIONS_CRON_SECRET || COMMUNICATIONS_CRON_SECRET.length < 32) {
+            console.error('Queue automation is not configured.');
+            process.exit(1);
+          }
+          let site;
+          try { site = new URL(NEXT_PUBLIC_SITE_URL); } catch { process.exit(1); }
+          if (site.protocol !== 'https:' || site.username || site.password || site.search || site.hash || site.pathname !== '/') {
+            console.error('Queue automation site configuration is invalid.');
+            process.exit(1);
+          }
+          try {
+            const response = await fetch(new URL('/api/internal/communications/process', site), {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${COMMUNICATIONS_CRON_SECRET}` },
+              redirect: 'error',
+              signal: AbortSignal.timeout(65000),
+            });
+            console.log(`Queue processor HTTP status: ${response.status}`);
+            if (!response.ok) process.exitCode = 1;
+          } catch {
+            console.error('Queue processor could not be reached.');
+            process.exitCode = 1;
+          }
+          NODE

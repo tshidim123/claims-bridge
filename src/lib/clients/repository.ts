@@ -1,15 +1,166 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { clientProfiles, type ClientProfile } from "@/lib/db/schema/client-profiles";
+import {
+  clientProfiles,
+  type ClientProfile,
+} from "@/lib/db/schema/client-profiles";
 import { emailOutbox } from "@/lib/db/schema/communications";
 import { createClientReference } from "@/lib/clients/reference";
 import { buildEmailOutboxValues } from "@/lib/communications/email";
+import { emitStaffCommunicationInTransaction } from "@/lib/communications/staff-notifications";
 import type { ProfileInput } from "./validation";
-export async function getClientProfileByClerkId(clerkUserId: string) { const db = getDb(); return (await db.select().from(clientProfiles).where(eq(clientProfiles.clerkUserId, clerkUserId)).limit(1))[0]; }
-export async function getClientProfileSummaryByClerkId(clerkUserId: string) { const db = getDb(); return (await db.select({ firstName: clientProfiles.firstName, lastName: clientProfiles.lastName, phone: clientProfiles.phone, city: clientProfiles.city, addressLine1: clientProfiles.addressLine1, preferredContactMethod: clientProfiles.preferredContactMethod, preferredContactTime: clientProfiles.preferredContactTime }).from(clientProfiles).where(eq(clientProfiles.clerkUserId, clerkUserId)).limit(1))[0]; }
-function values(input: ProfileInput) { return { firstName: input.firstName, lastName: input.lastName, phone: input.phone || null, bio: input.bio || null, addressLine1: input.addressLine1 || null, addressLine2: input.addressLine2 || null, city: input.city || null, region: input.region || null, postcode: input.postcode || null, country: input.country, preferredContactMethod: input.preferredContactMethod, preferredContactTime: input.preferredContactTime, preferredContactTimeNote: input.preferredContactTimeNote || null }; }
-export async function upsertClientProfile(clerkUserId: string, input: ProfileInput) { const db = getDb(); const now = new Date(); const existing = await getClientProfileByClerkId(clerkUserId); if (!existing) return db.transaction(async (tx) => { const profile = (await tx.insert(clientProfiles).values({ clientReference: createClientReference(), clerkUserId, ...values(input), onboardingStatus: "COMPLETE", onboardingCompletedAt: now, updatedAt: now }).returning())[0]; await tx.insert(emailOutbox).values(buildEmailOutboxValues({ event: "WELCOME", recipient: { mode: "DEFERRED", recipientType: "CLIENT", recipientReference: profile.clientReference }, payload: { firstName: profile.firstName }, dedupeKey: `WELCOME:${profile.clientReference}` })).onConflictDoNothing({ target: emailOutbox.dedupeKey }); return profile; }); const incoming = values(input); return (await db.update(clientProfiles).set({ firstName: incoming.firstName, lastName: incoming.lastName, phone: incoming.phone ?? existing.phone, preferredContactMethod: incoming.preferredContactMethod, bio: existing.bio, addressLine1: existing.addressLine1, addressLine2: existing.addressLine2, city: existing.city, region: existing.region, postcode: existing.postcode, country: existing.country, preferredContactTime: existing.preferredContactTime, preferredContactTimeNote: existing.preferredContactTimeNote, onboardingStatus: "COMPLETE", onboardingCompletedAt: now, updatedAt: now }).where(eq(clientProfiles.id, existing.id)).returning())[0]; }
-export async function updateClientProfileForClient(clerkUserId: string, input: ProfileInput) { const db = getDb(); const profile = await getClientProfileByClerkId(clerkUserId); if (!profile) throw new Error("Client profile not found."); return (await db.update(clientProfiles).set({ ...values(input), updatedAt: new Date() }).where(eq(clientProfiles.id, profile.id)).returning())[0]; }
-type ProfileCompletionFields = Pick<ClientProfile, "firstName" | "lastName" | "phone" | "city" | "addressLine1" | "preferredContactMethod" | "preferredContactTime">;
-export function getProfileCompletion(profile: ProfileCompletionFields | null | undefined) { if (!profile) return { complete: 0, total: 4 }; const sections = [Boolean(profile.firstName && profile.lastName), Boolean(profile.phone), Boolean(profile.city || profile.addressLine1), Boolean(profile.preferredContactMethod && profile.preferredContactTime)]; return { complete: sections.filter(Boolean).length, total: sections.length }; }
+export async function getClientProfileByClerkId(clerkUserId: string) {
+  const db = getDb();
+  return (
+    await db
+      .select()
+      .from(clientProfiles)
+      .where(eq(clientProfiles.clerkUserId, clerkUserId))
+      .limit(1)
+  )[0];
+}
+export async function getClientProfileSummaryByClerkId(clerkUserId: string) {
+  const db = getDb();
+  return (
+    await db
+      .select({
+        firstName: clientProfiles.firstName,
+        lastName: clientProfiles.lastName,
+        phone: clientProfiles.phone,
+        city: clientProfiles.city,
+        addressLine1: clientProfiles.addressLine1,
+        preferredContactMethod: clientProfiles.preferredContactMethod,
+        preferredContactTime: clientProfiles.preferredContactTime,
+      })
+      .from(clientProfiles)
+      .where(eq(clientProfiles.clerkUserId, clerkUserId))
+      .limit(1)
+  )[0];
+}
+function values(input: ProfileInput) {
+  return {
+    firstName: input.firstName,
+    lastName: input.lastName,
+    phone: input.phone || null,
+    bio: input.bio || null,
+    addressLine1: input.addressLine1 || null,
+    addressLine2: input.addressLine2 || null,
+    city: input.city || null,
+    region: input.region || null,
+    postcode: input.postcode || null,
+    country: input.country,
+    preferredContactMethod: input.preferredContactMethod,
+    preferredContactTime: input.preferredContactTime,
+    preferredContactTimeNote: input.preferredContactTimeNote || null,
+  };
+}
+export async function upsertClientProfile(
+  clerkUserId: string,
+  input: ProfileInput,
+  db = getDb(),
+) {
+  const now = new Date();
+  return db.transaction(async (tx) => {
+    const profile = (
+      await tx
+        .insert(clientProfiles)
+        .values({
+          clientReference: createClientReference(),
+          clerkUserId,
+          ...values(input),
+          onboardingStatus: "COMPLETE",
+          onboardingCompletedAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing({ target: clientProfiles.clerkUserId })
+        .returning()
+    )[0];
+    if (profile) {
+      await tx
+        .insert(emailOutbox)
+        .values(
+          buildEmailOutboxValues({
+            event: "WELCOME",
+            recipient: {
+              mode: "DEFERRED",
+              recipientType: "CLIENT",
+              recipientReference: profile.clientReference,
+            },
+            payload: { firstName: profile.firstName },
+            dedupeKey: `WELCOME:${profile.clientReference}`,
+          }),
+        )
+        .onConflictDoNothing({ target: emailOutbox.dedupeKey });
+      await emitStaffCommunicationInTransaction(tx, {
+        event: "NEW_CLIENT",
+        reference: profile.clientReference,
+        summary:
+          "A new client has completed account setup. Account status: Complete.",
+        destination: `/admin/clients/${profile.clientReference}`,
+        dedupeScope: profile.clientReference,
+      });
+      return profile;
+    }
+    const existing = (
+      await tx
+        .select()
+        .from(clientProfiles)
+        .where(eq(clientProfiles.clerkUserId, clerkUserId))
+        .limit(1)
+    )[0];
+    const incoming = values(input);
+    return (
+      await tx
+        .update(clientProfiles)
+        .set({
+          firstName: incoming.firstName,
+          lastName: incoming.lastName,
+          phone: incoming.phone ?? existing.phone,
+          preferredContactMethod: incoming.preferredContactMethod,
+          onboardingStatus: "COMPLETE",
+          onboardingCompletedAt: existing.onboardingCompletedAt ?? now,
+          updatedAt: now,
+        })
+        .where(eq(clientProfiles.id, existing.id))
+        .returning()
+    )[0];
+  });
+}
+export async function updateClientProfileForClient(
+  clerkUserId: string,
+  input: ProfileInput,
+) {
+  const db = getDb();
+  const profile = await getClientProfileByClerkId(clerkUserId);
+  if (!profile) throw new Error("Client profile not found.");
+  return (
+    await db
+      .update(clientProfiles)
+      .set({ ...values(input), updatedAt: new Date() })
+      .where(eq(clientProfiles.id, profile.id))
+      .returning()
+  )[0];
+}
+type ProfileCompletionFields = Pick<
+  ClientProfile,
+  | "firstName"
+  | "lastName"
+  | "phone"
+  | "city"
+  | "addressLine1"
+  | "preferredContactMethod"
+  | "preferredContactTime"
+>;
+export function getProfileCompletion(
+  profile: ProfileCompletionFields | null | undefined,
+) {
+  if (!profile) return { complete: 0, total: 4 };
+  const sections = [
+    Boolean(profile.firstName && profile.lastName),
+    Boolean(profile.phone),
+    Boolean(profile.city || profile.addressLine1),
+    Boolean(profile.preferredContactMethod && profile.preferredContactTime),
+  ];
+  return { complete: sections.filter(Boolean).length, total: sections.length };
+}

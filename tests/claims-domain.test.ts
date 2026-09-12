@@ -1937,8 +1937,8 @@ test("profile ownership and lead conversion preserve the authenticated profile b
   assert.match(actions, /updateClientProfileForClient\(userId/);
   assert.doesNotMatch(actions, /client_profile_id|clientProfileId/);
   assert.match(repository, /where\(eq\(clientProfiles\.id, profile\.id\)\)/);
-  assert.match(repository, /bio: existing\.bio/);
-  assert.match(repository, /addressLine1: existing\.addressLine1/);
+  const existingProfileUpdate = repository.slice(repository.indexOf("const incoming = values(input)"), repository.indexOf("export async function updateClientProfileForClient"));
+  assert.doesNotMatch(existingProfileUpdate, /bio:|addressLine1:/);
   assert.match(onboarding, /upsertClientProfile\(userId/);
   assert.match(
     leadService,
@@ -2316,17 +2316,18 @@ test("pre-account assessment receipts retain their submitted snapshot email", ()
 
 test("deferred recipients resolve only at delivery and snapshot before provider send", () => {
   const source = fs.readFileSync(
-    path.resolve("src/lib/communications/email.tsx"),
+    path.resolve("src/lib/communications/processor.ts"),
     "utf8",
   );
   assert.match(
     source,
-    /const resolved = record\.recipientEmail\s+\? \{ ok: true as const, email: record\.recipientEmail \}\s+: await resolveEmailRecipient/,
+    /const resolved = record\.recipientEmail\s+\? \{ ok: true as const, email: record\.recipientEmail \}\s+: await resolve/,
   );
   assert.match(
     source,
-    /if \(!record\.recipientEmail\)\s+await getDb\(\)\s+\.update\(emailOutbox\)\s+\.set\(\{ recipientEmail: resolved\.email/,
+    /recipientEmail: recipient,\s+providerRequest: request,\s+providerFirstAttemptAt: new Date\(\)/,
   );
+  assert.match(source, /where\(leaseCondition\(record\)\)/);
   assert.match(source, /RECIPIENT_SUPPRESSED/);
 });
 
@@ -2335,7 +2336,8 @@ test("communication email validation rejects malformed and header-injected snaps
     path.resolve("src/lib/communications/email.tsx"),
     "utf8",
   );
-  assert.match(source, /!emailPattern\.test\(email\) \|\| \/\[\\r\\n\]\//);
+  assert.match(source, /const email = normalizeMailbox\(value\)/);
+  assert.match(fs.readFileSync(path.resolve("src/lib/communications/config.ts"), "utf8"), /\\u0000-\\u001f/);
   assert.match(source, /throw new Error\("Invalid email recipient\."\)/);
 });
 
@@ -2371,7 +2373,8 @@ test("welcome is queued exactly on first profile creation, not profile edits", (
     path.resolve("src/lib/clients/repository.ts"),
     "utf8",
   );
-  assert.match(source, /if \(!existing\) return db\.transaction/);
+  assert.match(source, /onConflictDoNothing\(\{ target: clientProfiles\.clerkUserId \}\)/);
+  assert.match(source, /if \(profile\) \{/);
   assert.match(source, /event: "WELCOME"/);
   assert.match(source, /dedupeKey: `WELCOME:\$\{profile\.clientReference\}`/);
   assert.match(
@@ -2444,13 +2447,13 @@ test("client-facing evidence requests queue a deferred email in the staff workfl
   assert.match(source, /if \(!result\.requirement\.clientVisible\) throw/);
 });
 
-test("evidence email contains only safe requested evidence details and secure upload direction", () => {
+test("evidence email contains only safe requested evidence details and truthful document preparation guidance", () => {
   const source = fs.readFileSync(
     path.resolve("src/lib/communications/email.tsx"),
     "utf8",
   );
   assert.match(source, /VIEW EVIDENCE REQUEST/);
-  assert.match(source, /do not reply with documents to this email/);
+  assert.match(source, /do not send sensitive documents as email attachments/);
   assert.doesNotMatch(source, /storageKey/);
   assert.doesNotMatch(source, /fraud/i);
 });
@@ -2770,7 +2773,7 @@ test("action email payload uses client-safe fields and a real due date only when
   assert.match(source, /const dueDate = action\.dueAt\s+\?/);
   assert.match(
     source,
-    /title: action\.title,\s+description: action\.description,\s+dueDate/,
+    /title: action\.title,\s+description: action\.description,\s+stage: claimStatusConfig\[claim.status\]\.label,\s+progress: claimNextStepConfig\[claim.status\]\.explanation,\s+dueDate/,
   );
   assert.doesNotMatch(
     source,
@@ -3349,7 +3352,7 @@ test("system communications health is presence-only and secret-safe", () => {
   assert.match(health, /External delivery/);
   assert.match(health, /Some transactional communications require attention/);
   assert.doesNotMatch(health, /RESEND_API_KEY|RESEND_WEBHOOK_SECRET|DATABASE_URL/);
-  assert.doesNotMatch(configuration, /console\.|return\s+env\.|apiKey:/);
+  assert.doesNotMatch(configuration, /console\.|return\s+env\.(?:RESEND_|DATABASE_URL|CLERK_SECRET_KEY|COMMUNICATIONS_CRON_SECRET)|apiKey:/);
   assert.match(serverConfiguration, /import "server-only"/);
   assert.doesNotMatch(serverConfiguration, /console\.|return\s+process\.env/);
 });

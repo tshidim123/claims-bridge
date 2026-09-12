@@ -87,13 +87,13 @@ function parseDueDate(value: string | undefined) {
   return date;
 }
 
-export async function requestEvidenceForStaff(clerkUserId: string, claimReference: string, evidenceType: string, options: { required?: boolean; priority?: string; dueDate?: string } = {}) {
-  await requirePermission(clerkUserId, "EVIDENCE_REQUEST");
+export async function requestEvidenceForStaff(clerkUserId: string, claimReference: string, evidenceType: string, options: { required?: boolean; priority?: string; dueDate?: string } = {}, executor?: StaffDbExecutor) {
+  if (!executor) await requirePermission(clerkUserId, "EVIDENCE_REQUEST");
   if (!isEvidenceRequirementType(evidenceType)) throw new StaffWorkflowError("INVALID_EVIDENCE_TYPE");
   if (options.priority && !isEvidenceRequirementPriority(options.priority)) throw new StaffWorkflowError("INVALID_EVIDENCE_PRIORITY");
   const dueAt = parseDueDate(options.dueDate);
   const db = getDb();
-  return db.transaction(async (tx) => {
+  const execute = async (tx: StaffDbExecutor) => {
     const actor = await getActorInTransaction(tx, clerkUserId, "EVIDENCE_REQUEST");
     const claim = ensureWorkflowClaim(await claimIdForReference(tx, claimReference));
     const result = await requestEvidenceInTransaction(tx, claim.id, evidenceType, { required: options.required ?? true, priority: (options.priority as EvidenceRequirementPriority | undefined) ?? "NORMAL", clientVisible: true, dueAt });
@@ -103,7 +103,8 @@ export async function requestEvidenceForStaff(clerkUserId: string, claimReferenc
     await tx.insert(emailOutbox).values(buildEmailOutboxValues({ event: "EVIDENCE_REQUESTED", recipient: { mode: "DEFERRED", recipientType: "CLIENT", recipientReference: claim.clientReference }, payload: { claimReference, requirementReference: result.requirement.requirementReference, title: definition.label, description: definition.description, dueDate: result.requirement.dueAt?.toISOString().slice(0, 10) ?? null }, dedupeKey: `EVIDENCE_REQUESTED:${result.requirement.requirementReference}` })).onConflictDoNothing({ target: emailOutbox.dedupeKey });
     await recordStaffAuditEvent(tx, { actorStaffUserId: actor.staffUserId, actorType: "STAFF", action: "EVIDENCE_REQUESTED", targetType: "CLAIM", targetReference: claimReference, metadata: { evidenceType, required: result.requirement.required, priority: result.requirement.priority, dueDate: result.requirement.dueAt?.toISOString().slice(0, 10) ?? "NONE", requirementReference: result.requirement.requirementReference } });
     return { requirementReference: result.requirement.requirementReference, created: true, title: definition.label };
-  });
+  };
+  return executor ? execute(executor) : db.transaction(execute);
 }
 
 export async function reviewEvidenceForStaff(clerkUserId: string, claimReference: string, requirementReference: string, requestedStatus: string) {

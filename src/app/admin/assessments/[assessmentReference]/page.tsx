@@ -16,6 +16,7 @@ import { ASSESSMENT_REFERENCE_PATTERN } from "@/lib/eligibility/persistence/refe
 import { assessmentPayloadSchema } from "@/lib/eligibility/persistence/validation";
 import { getCurrentStaffContext } from "@/lib/staff/request";
 import { AssessmentReceiptStatus } from "@/components/admin/assessment-receipt-status";
+import { CommunicationActions } from "@/components/admin/communication-actions";
 
 export const metadata = {
   title: "Assessment detail",
@@ -107,6 +108,7 @@ export default async function AdminAssessmentDetailPage({
         <AssessmentReceiptStatus
           assessmentReference={preAccount.assessment.assessmentReference}
         />
+        {context.permissions.includes("COMMUNICATIONS_SEND") && !preAccount.assessment.convertedAt && <CommunicationActions identity={preAccount.leadReference} assessments={[{ assessmentReference }]} />}
         {parsedPre.success && (
           <GlassSurface strength="medium">
             <div className="assessment-summary">

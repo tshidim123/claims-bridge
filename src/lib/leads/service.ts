@@ -37,7 +37,8 @@ import {
 import { emitStaffCommunicationInTransaction } from "@/lib/communications/staff-notifications";
 
 const HANDOFF_MINUTES = 45;
-const CONVERSION_MINUTES = 30;
+// Email continuation must outlive normal queue retries and a client's return visit.
+const CONVERSION_MINUTES = 7 * 24 * 60;
 const CONSENT_VERSION = "service-contact-v1";
 const MARKETING_VERSION = "marketing-v1";
 

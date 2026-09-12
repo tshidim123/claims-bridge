@@ -6,6 +6,8 @@ import { AdminClientCorrectionForm } from "@/components/admin/admin-client-corre
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { getClientAssessmentsForAdmin, getClientOperationalProfile } from "@/lib/admin/operations/repository";
 import { getCurrentStaffContext } from "@/lib/staff/request";
+import { CommunicationActions } from "@/components/admin/communication-actions";
+import { ClientCommunicationHistory } from "@/components/admin/client-communication-history";
 
 export const metadata = { title: "Client operational profile", robots: { index: false, follow: false } };
 
@@ -27,6 +29,8 @@ export default async function AdminClientProfilePage({ params }: { params: Promi
   return (
     <div className="admin-page">
       <AdminPageHeader eyebrow="Operations / client profile" title={profile.name} description="A protected operational view of real profile and claim relationships. Authentication identifiers and raw database IDs remain private." />
+      {context.permissions.includes("COMMUNICATIONS_SEND") && <CommunicationActions clientReference={profile.clientReference} identity={profile.name} claims={profile.claims} assessments={assessments} />}
+      <ClientCommunicationHistory clientReference={profile.clientReference} />
       <div className="admin-profile-grid">
         <section className="admin-command-panel admin-command-panel--primary">
           <p className="eyebrow">Safe client reference</p>

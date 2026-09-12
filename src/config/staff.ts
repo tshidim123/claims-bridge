@@ -36,6 +36,7 @@ export const staffPermissions = [
   "AUDIT_VIEW",
   "SETTINGS_VIEW",
   "SETTINGS_MANAGE",
+  "COMMUNICATIONS_SEND",
 ] as const;
 export type StaffPermission = (typeof staffPermissions)[number];
 
@@ -155,6 +156,7 @@ export const staffAuditActions = [
   "LEAD_NOTE_ADDED",
   "LEAD_CONVERTED",
   "COMMUNICATION_RETRY_REQUESTED",
+  "COMMUNICATION_TRIGGERED",
 ] as const;
 export type StaffAuditAction = (typeof staffAuditActions)[number];
 

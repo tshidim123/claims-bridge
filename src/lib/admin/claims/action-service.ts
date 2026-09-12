@@ -12,6 +12,8 @@ import {
   type ClientActionType,
 } from "@/config/client-actions";
 import { createClientActionReference } from "@/lib/actions/keys";
+import { claimStatusConfig } from "@/config/claim-statuses";
+import { claimNextStepConfig } from "@/config/claim-tracking";
 import { getDb } from "@/lib/db";
 import { claimActionRequirements } from "@/lib/db/schema/actions";
 import { claims } from "@/lib/db/schema/claims";
@@ -113,8 +115,9 @@ export async function createClientActionRequirement(
     dueDate?: string;
     requestId?: string;
   },
+  executor?: StaffDbExecutor,
 ) {
-  await requirePermission(clerkUserId, "CLAIMS_MANAGE");
+  if (!executor) await requirePermission(clerkUserId, "CLAIMS_MANAGE");
   const requestId =
     input.requestId &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -132,7 +135,7 @@ export async function createClientActionRequirement(
     throw new StaffActionError("INVALID_PRIORITY");
   const dueAt = parseDueDate(input.dueDate);
   const db = getDb();
-  return db.transaction(async (tx) => {
+  const execute = async (tx: StaffDbExecutor) => {
     const actor = await actorInTransaction(tx, clerkUserId);
     const claim = await claimByReference(tx, claimReference);
     if (!claim) throw new StaffActionError("CLAIM_NOT_FOUND");
@@ -198,6 +201,8 @@ export async function createClientActionRequirement(
             actionReference: action.actionReference,
             title: action.title,
             description: action.description,
+            stage: claimStatusConfig[claim.status].label,
+            progress: claimNextStepConfig[claim.status].explanation,
             dueDate,
             actionUrl: `/account/claims/${encodeURIComponent(claimReference)}`,
           },
@@ -226,7 +231,8 @@ export async function createClientActionRequirement(
       },
     });
     return { actionReference: action.actionReference };
-  });
+  };
+  return executor ? execute(executor) : db.transaction(execute);
 }
 
 async function changeAction(

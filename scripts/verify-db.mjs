@@ -11,6 +11,9 @@ if (!process.env.DATABASE_URL) {
 const sql = neon(process.env.DATABASE_URL);
 const [verification] = await sql`
   select
+    exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'staff_audit_action' and e.enumlabel = 'COMMUNICATION_TRIGGERED') as manual_communication_audit,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'email_outbox' and column_name = 'provider_request') as email_provider_request_snapshot,
+    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'email_outbox' and column_name = 'provider_first_attempt_at') as email_provider_idempotency_window,
     exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'client_profiles') as client_profiles,
     exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'client_profiles' and column_name = 'bio') as client_profile_bio,
     exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'client_profiles' and column_name = 'preferred_contact_time') as client_profile_contact_time,
@@ -272,3 +275,4 @@ const [verification] = await sql`
 `;
 
 console.log(JSON.stringify(verification));
+if (Object.values(verification).some((value) => value === false)) process.exitCode = 1;

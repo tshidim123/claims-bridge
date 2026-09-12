@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 import { AdminAccessDenied } from "@/components/admin/admin-access-denied";
@@ -46,6 +46,7 @@ export default async function CommunicationDetailPage({
         lastAttemptAt: emailOutbox.lastAttemptAt,
         sentAt: emailOutbox.sentAt,
         providerMessageId: emailOutbox.providerMessageId,
+        providerFirstAttemptAt: emailOutbox.providerFirstAttemptAt,
         lastErrorCode: emailOutbox.lastErrorCode,
       })
       .from(emailOutbox)
@@ -62,6 +63,7 @@ export default async function CommunicationDetailPage({
       .from(emailDeliveryEvents)
       .where(eq(emailDeliveryEvents.emailOutboxId, item.id))
       .orderBy(
+        sql`case ${emailDeliveryEvents.eventType} when 'email.complained' then 4 when 'email.suppressed' then 4 when 'email.bounced' then 3 when 'email.delivered' then 2 else 1 end desc`,
         desc(emailDeliveryEvents.occurredAt),
         desc(emailDeliveryEvents.id),
       )

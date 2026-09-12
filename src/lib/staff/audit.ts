@@ -53,6 +53,8 @@ const allowedMetadataKeys = new Set([
   "conversionState",
   "emailReference",
   "communicationEvent",
+  "communicationPreset",
+  "communicationReference",
 ]);
 
 export function sanitizeAuditMetadata(

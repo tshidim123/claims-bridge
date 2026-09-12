@@ -26,6 +26,7 @@ type DbTransaction = Parameters<DbClient["transaction"]>[0] extends (
 export type StaffCommunicationExecutor = DbClient | DbTransaction;
 type StaffEventDefinition = {
   category:
+    | "CLIENTS"
     | "ASSESSMENTS"
     | "CLAIMS"
     | "MESSAGES"
@@ -57,11 +58,16 @@ const event = (
   preheader,
 });
 export const staffNotificationEvents = {
+  NEW_CLIENT: event(
+    "CLIENTS", "CLIENTS_VIEW", ["SUPER_ADMIN", "ADMIN", "CASE_MANAGER", "SUPPORT"],
+    "New client", "/admin/clients", (reference) => `New Claims Bridge client — ${reference}`,
+    "A new client has completed account setup.",
+  ),
   NEW_PRE_ACCOUNT_ASSESSMENT: event(
     "ASSESSMENTS",
     "LEADS_VIEW",
     ["SUPER_ADMIN", "ADMIN", "CASE_MANAGER", "SUPPORT"],
-    "New eligibility assessment",
+    "New lead / eligibility assessment",
     "/admin/assessments",
     (reference) => `New Claims Bridge eligibility assessment — ${reference}`,
     "A new signed-out eligibility assessment has been submitted.",
@@ -184,10 +190,10 @@ export async function resolveStaffRecipientsInTransaction(
     .where(eq(staffNotificationPreferences.category, definition.category));
   return active
     .filter((member) =>
-      input.onlyStaffReference
+      (input.onlyStaffReference
         ? member.staffReference === input.onlyStaffReference
         : (member.staffReference === assigned ||
-            definition.roles.includes(member.role)) &&
+            definition.roles.includes(member.role))) &&
           hasPermissionForRole(member.role, definition.permission) &&
           member.role !== "READ_ONLY",
     )
@@ -248,6 +254,7 @@ export async function emitStaffCommunicationInTransaction(
                       destination: input.destination,
                       subject: definition.subject(input.reference),
                       preheader: definition.preheader,
+                      occurredAt: new Date().toISOString(),
                     },
                     dedupeKey,
                   }),

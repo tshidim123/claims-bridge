@@ -7,6 +7,7 @@ import {
   eq,
   inArray,
   isNull,
+  sql,
 } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
@@ -109,7 +110,7 @@ export async function updateOwnStaffPreference(
 ) {
   const staff = await currentStaff(clerkUserId);
   if (
-    !/^(ASSESSMENTS|CLAIMS|MESSAGES|EVIDENCE|ASSIGNMENTS|PRIORITY)$/.test(
+    !/^(CLIENTS|ASSESSMENTS|CLAIMS|MESSAGES|EVIDENCE|ASSIGNMENTS|PRIORITY)$/.test(
       category,
     )
   )
@@ -232,6 +233,7 @@ export async function getAssessmentReceiptStatus(reference: string) {
         sentAt: emailOutbox.sentAt,
         lastErrorCode: emailOutbox.lastErrorCode,
         providerMessageId: emailOutbox.providerMessageId,
+        providerFirstAttemptAt: emailOutbox.providerFirstAttemptAt,
         snapshotAddress: emailOutbox.recipientEmail,
       })
       .from(emailOutbox)
@@ -257,6 +259,7 @@ export async function getAssessmentReceiptStatus(reference: string) {
       )
       .where(eq(emailOutbox.emailReference, row.emailReference))
       .orderBy(
+        sql`case ${emailDeliveryEvents.eventType} when 'email.complained' then 4 when 'email.suppressed' then 4 when 'email.bounced' then 3 when 'email.delivered' then 2 else 1 end desc`,
         desc(emailDeliveryEvents.occurredAt),
         desc(emailDeliveryEvents.id),
       )

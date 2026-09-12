@@ -1,0 +1,150 @@
+.studio {
+  max-width: 1200px;
+  margin: auto;
+  padding: 32px clamp(16px, 4vw, 48px) 64px;
+  color: var(--color-text);
+}
+.header {
+  margin-bottom: 28px;
+}
+.header > p:first-child {
+  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+  color: var(--color-accent-ice);
+}
+.header h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin: 12px 0;
+}
+.header p,
+.note {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+}
+.controls label {
+  display: grid;
+  flex: 1 1 240px;
+  min-width: 0;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+.controls select {
+  width: 100%;
+  min-width: 0;
+  background: #102a43;
+  color: #fff;
+}
+.controls select,
+.controls button,
+.modes button {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 8px;
+  font: inherit;
+}
+.controls button,
+.modes button {
+  background: #173b50;
+  color: #fff;
+  cursor: pointer;
+}
+.studio :is(button, select, input):focus-visible {
+  outline: 3px solid #72d9ec;
+  outline-offset: 3px;
+}
+.envelope {
+  margin: 24px 0;
+  padding: 0 24px;
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+  overflow-wrap: anywhere;
+}
+.envelope dl > div {
+  min-width: 0;
+  padding: 10px 0;
+}
+.envelope dt {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 6px;
+}
+.envelope dd {
+  margin: 0;
+  line-height: 1.5;
+}
+.metadata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  border-top: 1px solid var(--color-line);
+  gap: 12px;
+  font-size: 0.8rem;
+}
+.modes,
+.modes > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.modes {
+  justify-content: space-between;
+}
+.modes button[aria-pressed="true"] {
+  background: #c5f1ec;
+  color: #102a43;
+}
+.modes label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+}
+.canvas {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  background: #243b53;
+  padding: 20px 0;
+}
+.canvas iframe {
+  display: block;
+  margin: auto;
+  border: 0;
+  background: #edf2f7;
+  max-width: none;
+}
+.plainText {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 24px;
+  background: #102a43;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.note {
+  font-size: 0.8rem;
+}
+@media (max-width: 480px) {
+  .controls {
+    padding: 16px;
+  }
+  .controls button {
+    width: 100%;
+  }
+  .envelope {
+    padding: 0 16px;
+  }
+}

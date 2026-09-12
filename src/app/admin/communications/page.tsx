@@ -46,12 +46,14 @@ export default async function CommunicationsPage({
     event?: string;
     delivery?: string;
     page?: string;
+    recipient?: string;
   }>;
 }) {
   const context = await getCurrentStaffContext();
   if (!context?.permissions.includes("SETTINGS_VIEW"))
     return <AdminAccessDenied forbidden />;
   const query = await searchParams;
+  const recipient = query.recipient && /^CB-(?:CLT|LEAD)-[A-Z0-9-]{6,40}$/.test(query.recipient) ? query.recipient : undefined;
   const status = valid(query.status, statuses);
   const audience = valid(query.audience, audiences);
   const event =
@@ -66,7 +68,10 @@ export default async function CommunicationsPage({
     select ${emailDeliveryEvents.eventType}
     from ${emailDeliveryEvents}
     where ${emailDeliveryEvents.emailOutboxId} = ${emailOutbox.id}
-    order by ${emailDeliveryEvents.occurredAt} desc, ${emailDeliveryEvents.id} desc
+    order by case ${emailDeliveryEvents.eventType}
+      when 'email.complained' then 4 when 'email.suppressed' then 4
+      when 'email.bounced' then 3 when 'email.delivered' then 2 else 1 end desc,
+      ${emailDeliveryEvents.occurredAt} desc, ${emailDeliveryEvents.id} desc
     limit 1
   )`;
   const activeSuppression = sql<boolean>`exists (
@@ -101,6 +106,7 @@ export default async function CommunicationsPage({
         sentAt: emailOutbox.sentAt,
         lastErrorCode: emailOutbox.lastErrorCode,
         providerMessageId: emailOutbox.providerMessageId,
+        providerFirstAttemptAt: emailOutbox.providerFirstAttemptAt,
         deliveryEvent: latestDeliveryEvent,
         suppressed: activeSuppression,
       })
@@ -111,6 +117,7 @@ export default async function CommunicationsPage({
           audience ? eq(emailOutbox.recipientType, audience) : undefined,
           event ? eq(emailOutbox.eventKey, event) : undefined,
           deliveryCondition,
+          recipient ? eq(emailOutbox.recipientReference, recipient) : undefined,
         ),
       )
       .orderBy(desc(emailOutbox.createdAt), desc(emailOutbox.id))
@@ -127,6 +134,7 @@ export default async function CommunicationsPage({
   const items = rows.slice(0, pageSize);
   const params = new URLSearchParams();
   if (status) params.set("status", status);
+  if (recipient) params.set("recipient", recipient);
   if (audience) params.set("audience", audience);
   if (event) params.set("event", event);
   if (deliveryState) params.set("delivery", deliveryState);
@@ -143,6 +151,8 @@ export default async function CommunicationsPage({
         description="Inspect the durable queue and confirmed provider delivery state."
       />
       <CommunicationsHealth metrics={metrics} />
+      {context.permissions.includes("COMMUNICATIONS_SEND") && <p>To send a controlled service communication, open a <Link href="/admin/clients">client profile</Link> or a <Link href="/admin/assessments">pre-account assessment</Link>.</p>}
+      {recipient && <p>Communication history for {recipient}</p>}
       <section className="admin-status-grid">
         <h2>Outbox</h2>
         <dl>
@@ -180,6 +190,7 @@ export default async function CommunicationsPage({
         method="get"
         aria-label="Filter communications"
       >
+        {recipient && <input type="hidden" name="recipient" value={recipient} />}
         <label>
           Status
           <select name="status" defaultValue={status ?? ""}>

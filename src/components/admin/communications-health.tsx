@@ -1,4 +1,5 @@
 import { getCommunicationConfiguration } from "@/lib/communications/server-config";
+import { evaluateWorkerConfiguration } from "@/lib/communications/config";
 import type { getEmailMetrics } from "@/lib/communications/staff-operations";
 
 export function CommunicationsHealth({
@@ -7,6 +8,7 @@ export function CommunicationsHealth({
   metrics: Awaited<ReturnType<typeof getEmailMetrics>>;
 }) {
   const config = getCommunicationConfiguration();
+  const worker = evaluateWorkerConfiguration(process.env);
   const outbox = new Map(
     metrics.rows.map((row) => [row.status, Number(row.count)]),
   );
@@ -39,9 +41,12 @@ export function CommunicationsHealth({
           ["Sender identity", configured(config.sender)],
           ["Reply-to", configured(config.replyTo)],
           ["Webhook verification", configured(config.webhook)],
+          ["Queue automation authorization", configured(worker.automation)],
+          ["Canonical email site", configured(worker.canonicalSite)],
+          ["Delivery policy", worker.developmentSending ? "Production or allowlisted recipients" : "Development sending blocked"],
           [
             "External delivery",
-            config.deliveryActive ? "Active" : "Inactive",
+            worker.canProcess ? "Configured; provider verification required" : "Inactive",
           ],
           [
             "Provider delivery tracking",

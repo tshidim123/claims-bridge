@@ -10,6 +10,7 @@ import { getStaffRecordByClerkId } from "@/lib/staff/authorization";
 import { getCurrentStaffContext } from "@/lib/staff/request";
 
 const categories = [
+  ["CLIENTS", "New clients", "Alerts when a new client completes account setup."],
   [
     "ASSESSMENTS",
     "Assessments",

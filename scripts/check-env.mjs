@@ -1,4 +1,5 @@
 import nextEnv from "@next/env";
+import { evaluateCommunicationConfiguration, evaluateWorkerConfiguration } from "../src/lib/communications/config.ts";
 
 const { loadEnvConfig } = nextEnv;
 
@@ -36,6 +37,17 @@ console.log(`R2 document storage: ${storageCount === 0 ? "optional / not configu
 if (storageCount > 0 && storageCount < optionalStorage.length) failed = true;
 const bootstrapId = process.env.STAFF_BOOTSTRAP_CLERK_USER_ID || process.env.BOOTSTRAP_SUPER_ADMIN_CLERK_USER_ID;
 console.log(`Staff bootstrap identity: ${bootstrapId ? "configured for controlled bootstrap" : "not configured (not required after bootstrap)"}`);
-const emailConfigured = Boolean(process.env.RESEND_API_KEY && process.env.CLAIMS_BRIDGE_FROM_EMAIL);
-console.log(`Transactional email provider: ${emailConfigured ? "configured" : "not configured"}`);
+const communicationEnvironment = productionMode ? { ...process.env, NODE_ENV: "production" } : process.env;
+const communications = evaluateCommunicationConfiguration(communicationEnvironment);
+const worker = evaluateWorkerConfiguration(communicationEnvironment);
+for (const [label, configured] of [
+  ["Transactional provider", communications.provider],
+  ["Sender", communications.sender],
+  ["Reply-to", communications.replyTo],
+  ["Webhook", communications.webhook],
+  ["Queue automation authorization", worker.automation],
+  ["Email canonical site", worker.canonicalSite],
+]) console.log(`${label}: ${configured ? "configured" : "not configured"}`);
+console.log(`Development send policy: ${worker.developmentSending ? "production delivery or explicit allowlist" : "blocked (no allowlist)"}`);
+console.log("Scheduler activation: requires the repository workflow and environment configuration; not verified by this check.");
 process.exitCode = failed ? 1 : 0;
