@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { Readable } from "node:stream";
+import type { AddressInfo } from "node:net";
 import { Webhook } from "svix";
 import { communicationEvents } from "../src/lib/communications/registry";
 import {
@@ -402,6 +405,163 @@ test("queue authorization rejects unauthorized requests and browser-controlled d
     200,
   );
   assert.equal(calls, 1);
+});
+
+const processorUrl = "https://example.test/api/internal/communications/process";
+const processorSummary = {
+  processed: 0, accepted: 0, attention: 0, leaseLost: 0, inactive: false,
+};
+function streamedProcessorRequest(body: ReadableStream<Uint8Array>, headers = {}) {
+  const init: RequestInit & { duplex: "half" } = {
+    method: "POST", body, duplex: "half",
+    headers: { authorization: `Bearer ${secret}`, ...headers },
+  };
+  return new Request(processorUrl, init);
+}
+const unexpectedProcessor = async () => {
+  assert.fail("Rejected requests must never invoke the processor");
+};
+
+test("processor accepts empty streams and empty text with the canonical server batch", async () => {
+  const requests = [
+    streamedProcessorRequest(new ReadableStream({ start(c) { c.close(); } })),
+    streamedProcessorRequest(new ReadableStream({ start(c) {
+      c.enqueue(new Uint8Array(0)); c.close();
+    } }), { "content-length": "0" }),
+    new Request(processorUrl, {
+      method: "POST", body: "", headers: { authorization: `Bearer ${secret}` },
+    }),
+  ];
+  let calls = 0;
+  for (const request of requests) {
+    assert.notEqual(request.body, null);
+    const response = await handleProcessorRequest(request, async (size) => {
+      calls++;
+      assert.equal(size, workerLimits.batchSize);
+      return processorSummary;
+    }, secret);
+    assert.equal(response.status, 200);
+  }
+  assert.equal(calls, requests.length);
+});
+
+test("processor rejects every actual body including JSON, forms, whitespace and misleading zero length", async () => {
+  for (const body of ["{}", '{"batchSize":100}', "foo=bar", "arbitrary text", " ", "\u0000"]) {
+    const request = new Request(processorUrl, {
+      method: "POST", body,
+      headers: { authorization: `Bearer ${secret}`, "content-length": "0" },
+    });
+    const response = await handleProcessorRequest(request, unexpectedProcessor, secret);
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "No parameters accepted" });
+  }
+});
+
+test("processor rejects nonzero declared length and queries without reading the stream", async () => {
+  for (const query of [false, true]) {
+    const request = new Request(`${processorUrl}${query ? "?batchSize=100" : ""}`, {
+      method: "POST", headers: {
+        authorization: `Bearer ${secret}`, ...(query ? {} : { "content-length": "1" }),
+      },
+    });
+    Object.defineProperty(request, "body", { get() { assert.fail("Body must not be read"); } });
+    const response = await handleProcessorRequest(request, unexpectedProcessor, secret);
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "No parameters accepted" });
+  }
+});
+
+test("processor authenticates before body access and rejects non-POST methods", async () => {
+  for (const authorization of ["", "Bearer incorrect"]) {
+    const request = new Request(processorUrl, { method: "POST", headers: { authorization } });
+    Object.defineProperty(request, "body", { get() { assert.fail("Unauthorized body access"); } });
+    assert.equal((await handleProcessorRequest(request, unexpectedProcessor, secret)).status, 401);
+  }
+  for (const method of ["GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]) {
+    const request = new Request(processorUrl, { method, headers: { authorization: `Bearer ${secret}` } });
+    Object.defineProperty(request, "body", { get() { assert.fail("Wrong-method body access"); } });
+    assert.equal((await handleProcessorRequest(request, unexpectedProcessor, secret)).status, 405);
+  }
+});
+
+test("processor stops reading at the first payload chunk and cancels the stream", async () => {
+  let reads = 0;
+  let cancelled = false;
+  const request = streamedProcessorRequest(new ReadableStream({
+    pull(c) { reads++; c.enqueue(new Uint8Array([1])); },
+    cancel() { cancelled = true; },
+  }, { highWaterMark: 0 }));
+  assert.equal((await handleProcessorRequest(request, unexpectedProcessor, secret)).status, 400);
+  assert.equal(reads, 1);
+  assert.equal(cancelled, true);
+});
+
+test("processor fails closed on endless empty chunks or failed streams", async () => {
+  let reads = 0;
+  const endless = new ReadableStream<Uint8Array>({
+    pull(c) { reads++; c.enqueue(new Uint8Array(0)); },
+  }, { highWaterMark: 0 });
+  const failed = new ReadableStream<Uint8Array>({ start(c) { c.error(new Error("private stream failure")); } });
+  for (const stream of [endless, failed]) {
+    const response = await handleProcessorRequest(streamedProcessorRequest(stream), unexpectedProcessor, secret);
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "No parameters accepted" });
+  }
+  assert.equal(reads, 16);
+});
+
+test("processor bounds stalled body reads without waiting for source cancellation", { timeout: 5000 }, async () => {
+  let cancelled = false;
+  const request = streamedProcessorRequest(new ReadableStream<Uint8Array>({
+    cancel() { cancelled = true; return new Promise(() => {}); },
+  }));
+  const response = await handleProcessorRequest(request, unexpectedProcessor, secret);
+  assert.equal(response.status, 400);
+  assert.equal(cancelled, true);
+});
+
+test("processor accepts the scheduler's real Node fetch no-body POST over HTTP", async () => {
+  let calls = 0;
+  const server = createServer(async (incoming, outgoing) => {
+    try {
+      // Like Next's Node adapter, expose the incoming POST as a Web stream even
+      // when fetch sent no body. This catches what new Request(url) alone misses.
+      const init: RequestInit & { duplex: "half" } = {
+        method: incoming.method,
+        headers: incoming.headers as Record<string, string>,
+        body: Readable.toWeb(incoming) as ReadableStream<Uint8Array>,
+        duplex: "half",
+      };
+      const request = new Request(processorUrl, init);
+      assert.notEqual(request.body, null);
+      const response = await handleProcessorRequest(request, async (size) => {
+        calls++;
+        assert.equal(size, workerLimits.batchSize);
+        return processorSummary;
+      }, secret);
+      outgoing.writeHead(response.status);
+      outgoing.end(await response.text());
+    } catch {
+      outgoing.writeHead(500); outgoing.end();
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const site = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    // Same method, headers, redirect and timeout options as communications.yml;
+    // only the destination and secret are replaced with isolated test values.
+    const response = await fetch(new URL("/api/internal/communications/process", site), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secret}` },
+      redirect: "error",
+      signal: AbortSignal.timeout(65000),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), processorSummary);
+    assert.equal(calls, 1);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 });
 
 test("processor error responses never expose secrets and inactive delivery is truthful", async () => {
