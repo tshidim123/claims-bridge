@@ -42,7 +42,7 @@ export function previewInput(
       return {
         event,
         payload: {
-          assessmentReference,
+          assessmentReference: long ? `CB-ASM-${"DEMO2026".repeat(7)}` : assessmentReference,
           outcome: outcome.headline,
           explanation: outcome.explanation,
           evidence: outcome.evidence.map(({ label, description }) => ({

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-head-element -- Standalone email documents, not Next.js pages. */
 import "server-only";
 
 import { render as renderEmail } from "@react-email/render";
@@ -157,13 +158,33 @@ const colour = {
 function Shell({
   preheader,
   children,
+  campaign = false,
 }: {
   preheader: string;
   children: React.ReactNode;
+  campaign?: boolean;
 }) {
   return (
     <html>
+      {campaign && <head>
+        <meta name="color-scheme" content="light dark" />
+        <meta name="supported-color-schemes" content="light dark" />
+        <style>{`
+          .campaign-email .email-secondary { color: #334155 !important; }
+          @media (prefers-color-scheme: dark) {
+            .campaign-body { background-color: #111b27 !important; }
+            .campaign-email { background-color: #172536 !important; color: #f1f5f9 !important; border-color: #607286 !important; }
+            .campaign-email header { background-color: #102a43 !important; color: #ffffff !important; }
+            .campaign-email .email-card { background-color: #223448 !important; }
+            .campaign-email .email-secondary { color: #e2e8f0 !important; }
+            .campaign-email .email-divider, .campaign-email footer { border-color: #607286 !important; }
+            .campaign-email a { color: #9de8df !important; }
+            .campaign-email .campaign-cta { background-color: #0b6e69 !important; color: #ffffff !important; border-color: #9de8df !important; }
+          }
+        `}</style>
+      </head>}
       <body
+        className={campaign ? "campaign-body" : undefined}
         style={{
           margin: 0,
           backgroundColor: "#edf2f7",
@@ -184,11 +205,12 @@ function Shell({
           {preheader}
         </div>
         <main
+          className={campaign ? "campaign-email" : undefined}
           style={{
             width: "100%",
             maxWidth: 600,
             boxSizing: "border-box",
-            margin: "28px auto",
+            margin: campaign ? "12px auto" : "28px auto",
             backgroundColor: "#fff",
             borderRadius: 18,
             overflow: "hidden",
@@ -197,7 +219,7 @@ function Shell({
         >
           <header
             style={{
-              padding: "26px 34px",
+              padding: campaign ? "18px 24px" : "26px 34px",
               backgroundColor: colour.navy,
               color: "#fff",
             }}
@@ -219,15 +241,16 @@ function Shell({
                       Secure claim support
                     </div>
                   </td>
-                  <td align="right" style={{ color: "#8fe1d9", fontSize: 12 }}>
+                  {!campaign && <td align="right" style={{ color: "#8fe1d9", fontSize: 12 }}>
                     claimsbridge.co.uk
-                  </td>
+                  </td>}
                 </tr>
               </tbody>
             </table>
           </header>
-          <section style={{ padding: "32px 34px 20px" }}>{children}</section>
+          <section style={{ padding: campaign ? "20px 24px" : "32px 34px 20px" }}>{children}</section>
           <footer
+            className="email-secondary"
             style={{
               padding: "22px 34px 30px",
               borderTop: `1px solid ${colour.border}`,
@@ -352,6 +375,7 @@ function Checklist({ title, items }: { title: string; items: string[] }) {
     <section style={{ margin: "26px 0" }}>
       <h2 style={{ margin: "0 0 10px", fontSize: 18 }}>{title}</h2>
       <div
+        className="email-card email-divider"
         style={{
           border: `1px solid ${colour.border}`,
           borderRadius: 12,
@@ -360,6 +384,7 @@ function Checklist({ title, items }: { title: string; items: string[] }) {
       >
         {items.map((item, index) => (
           <div
+            className="email-secondary email-divider"
             key={`${item}-${index}`}
             style={{
               padding: "12px 15px",
@@ -383,7 +408,7 @@ function Timeline({ items }: { items: string[] }) {
   return (
     <section style={{ margin: "26px 0" }}>
       <h2 style={{ fontSize: 18 }}>What happens next</h2>
-      <ol style={{ paddingLeft: 21, color: colour.muted, lineHeight: 1.7 }}>
+      <ol className="email-secondary" style={{ paddingLeft: 21, color: colour.muted, lineHeight: 1.7 }}>
         {items.map((item) => (
           <li key={item}>{item}</li>
         ))}
@@ -394,6 +419,7 @@ function Timeline({ items }: { items: string[] }) {
 function SecurityNotice({ children }: { children: React.ReactNode }) {
   return (
     <div
+      className="email-card email-secondary"
       style={{
         padding: "14px 16px",
         borderLeft: `4px solid ${colour.teal}`,
@@ -408,20 +434,48 @@ function SecurityNotice({ children }: { children: React.ReactNode }) {
   );
 }
 
+const assessmentPreheader = "Your assessment is saved. Sign in, review your result and choose when to start your claim.";
+const assessmentShortSteps = [
+  "Create or sign into your Claims Bridge account.",
+  "Review your saved assessment.",
+  "Start your claim when you are ready.",
+];
+const assessmentDetailedSteps = [
+  "Create or sign into your Claims Bridge account.",
+  "Your saved assessment is linked securely.",
+  "Review your assessment and the supporting information suggested.",
+  "When ready, choose Start Claim in your account and confirm that you want to proceed.",
+  "Follow requested actions and document guidance through your secure portal.",
+];
+function AssessmentButton({ href }: { href: string }) {
+  return <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}
+    style={{ maxWidth: 360, margin: "18px auto", borderCollapse: "collapse" }}>
+    <tbody><tr><td align="center" style={{ backgroundColor: colour.teal, borderRadius: 8 }}>
+      <a className="campaign-cta" href={href} style={{ display: "block", padding: "16px 12px",
+        backgroundColor: colour.teal, color: "#fff", border: `1px solid ${colour.teal}`,
+        borderRadius: 8, fontSize: 16, fontWeight: 700, lineHeight: "24px", textAlign: "center", textDecoration: "none" }}>
+        START MY CLAIM
+      </a>
+    </td></tr></tbody>
+  </table>;
+}
 function AssessmentEmail({ payload }: { payload: AssessmentReceiptPayload }) {
+  const href = safeUrl(payload.continuationUrl, "/account/assessment");
   return (
-    <Shell preheader="Your assessment has been saved. Review your result and prepare the documents needed to start your claim.">
-      <Hero
-        eyebrow="Eligibility assessment"
-        title="We’ve received your eligibility assessment"
-      >
-        {payload.explanation}
-      </Hero>
-      <ReferenceCard
-        label="Assessment reference"
-        value={payload.assessmentReference}
-      />
-      <Checklist title="Your preliminary result" items={[payload.outcome]} />
+    <Shell preheader={assessmentPreheader} campaign>
+      <h1 style={{ margin: "0 0 14px", fontSize: 25, lineHeight: 1.2 }}>Eligibility assessment received</h1>
+      <div className="email-card email-divider" style={{ padding: "12px 14px", backgroundColor: colour.mist,
+        border: `1px solid ${colour.border}`, borderRadius: 8 }}>
+        <p className="email-secondary" style={{ margin: "0 0 4px", fontSize: 13 }}>Assessment reference</p>
+        <p style={{ margin: "0 0 12px", fontSize: 17, fontWeight: 700 }}>{payload.assessmentReference}</p>
+        <h2 style={{ margin: "0 0 6px", fontSize: 15 }}>Your preliminary result</h2>
+        <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45 }}>{payload.outcome}</p>
+      </div>
+      <AssessmentButton href={href} />
+      <ol className="email-secondary" style={{ margin: "0 0 16px", paddingLeft: 21, fontSize: 15, lineHeight: 1.5 }}>
+        {assessmentShortSteps.map((step) => <li key={step}>{step}</li>)}
+      </ol>
+      <p className="email-secondary" style={{ margin: "0 0 18px", fontSize: 15, lineHeight: 1.5 }}>{payload.explanation}</p>
       <Checklist
         title="Documents to prepare"
         items={
@@ -434,20 +488,8 @@ function AssessmentEmail({ payload }: { payload: AssessmentReceiptPayload }) {
               ]
         }
       />
-      <PrimaryButton
-        href={safeUrl(payload.continuationUrl, "/account/assessment")}
-      >
-        START MY CLAIM
-      </PrimaryButton>
-      <Timeline
-        items={[
-          "Create or sign into your Claims Bridge account.",
-          "Your saved assessment is linked securely.",
-          "Review your assessment.",
-          "Start your claim when you are ready, using the separate confirmation in your account.",
-          "Follow requested actions and document guidance through your secure portal.",
-        ]}
-      />
+      <AssessmentButton href={href} />
+      <Timeline items={assessmentDetailedSteps} />
       <SecurityNotice>
         You’ll need to create or sign in before starting a claim. An assessment
         is not a claim and does not guarantee an outcome.
@@ -865,12 +907,12 @@ export async function renderCommunicationEmail(input: CommunicationEmailInput) {
     }
     case "ASSESSMENT_RECEIVED": {
       const item = input.payload;
+      const url = safeUrl(item.continuationUrl, "/account/assessment");
       return {
-        subject: `Your Claims Bridge eligibility assessment — ${item.assessmentReference}`,
-        preheader:
-          "Your assessment has been saved. Review your result and prepare the documents needed to start your claim.",
+        subject: `Your eligibility check is complete — ${item.assessmentReference}`,
+        preheader: assessmentPreheader,
         html: await renderEmail(<AssessmentEmail payload={item} />),
-        text: `We’ve received your eligibility assessment.\nAssessment reference: ${item.assessmentReference}\n\n${item.outcome}\n\n${item.explanation}\n\nDocuments to prepare:\n${item.evidence.length ? item.evidence.map((entry) => `- ${entry.label}: ${entry.description}`).join("\n") : "- Review your saved assessment to see what supporting information may be useful."}\n\nSTART MY CLAIM: ${safeUrl(item.continuationUrl, "/account/assessment")}\n\n1. Create or sign into your Claims Bridge account.\n2. Your saved assessment is linked securely.\n3. Review your assessment.\n4. Start your claim when ready with a separate confirmation.\n5. Follow requested actions and document guidance through your secure portal.\n\nAn assessment is not a claim and does not guarantee an outcome. Never email passwords or sensitive documents.\n\nSupport: ${siteUrl()}/contact`,
+        text: `Eligibility assessment received.\nAssessment reference: ${item.assessmentReference}\n\nYour preliminary result: ${item.outcome}\n\nSTART MY CLAIM: ${url}\n\n${assessmentShortSteps.map((step, index) => `${index + 1}. ${step}`).join("\n")}\n\n${item.explanation}\n\nDocuments to prepare:\n${item.evidence.length ? item.evidence.map((entry) => `- ${entry.label}: ${entry.description}`).join("\n") : "- Review your saved assessment to see what supporting information may be useful."}\n\nSTART MY CLAIM: ${url}\n\nWhat happens next:\n${assessmentDetailedSteps.map((step, index) => `${index + 1}. ${step}`).join("\n")}\n\nAn assessment is not a claim and does not guarantee an outcome. Never email passwords or sensitive documents.\n\nSupport: ${siteUrl()}/contact\nPrivacy: ${siteUrl()}/privacy\nTerms: ${siteUrl()}/terms`,
       };
     }
     case "WELCOME": {
