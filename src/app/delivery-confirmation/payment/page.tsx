@@ -11,12 +11,12 @@ import { CheckoutPreview } from "../shipment-controls";
 import styles from "./payment.module.css";
 
 const sampleFields = [
-  { label: "Card holder name", value: "Full name as shown on card" },
-  { label: "ID / Passport number", value: "Example ID or passport number" },
-  { label: "Cellphone number", value: "000 000 0000" },
-  { label: "Card number", value: "•••• •••• •••• ••••" },
-  { label: "Expiry (MM/YY)", value: "12/28" },
-  { label: "CVV", value: "•••" },
+  { label: "Name on card", value: "Full name as shown on card" },
+  { label: "Identity document number", value: "Example ID or passport number" },
+  { label: "Mobile number", value: "000 000 0000" },
+  { label: "Payment card number", value: "•••• •••• •••• ••••" },
+  { label: "Expiration date (MM/YY)", value: "12/28" },
+  { label: "Card security code", value: "•••" },
 ];
 
 export const metadata: Metadata = {
@@ -55,7 +55,7 @@ export default function DeliveryPaymentPage() {
 
         <section className={styles.checkout} aria-labelledby="payment-title">
           <div className={styles.brands}><CardBrands /></div>
-          <h1 id="payment-title">Complete your payment</h1>
+          <h1 id="payment-title">Review payment details</h1>
           <p className={styles.intro}>Review the sample checkout details below.</p>
           <dl className={styles.fields}>
             {sampleFields.map(({ label, value }) => (
