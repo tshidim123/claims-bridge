@@ -15,6 +15,8 @@ const applicationMiddleware = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && p
   ? configuredMiddleware
   : () => NextResponse.next();
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
+  // The delivery design preview has no account or shipment data.
+  if (request.nextUrl.pathname === "/delivery-confirmation") return NextResponse.next();
   if (request.nextUrl.pathname.startsWith("/dev/") && !communicationPreviewEnabled(process.env)) {
     return new NextResponse("Not found", { status: 404 });
   }
