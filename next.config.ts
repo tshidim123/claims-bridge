@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     qualities: [70, 75, 82],
   },
+  async redirects() {
+    if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "preview/delivery-confirmation") {
+      return [{ source: "/", destination: "/delivery-confirmation", permanent: false }];
+    }
+    return [];
+  },
   async headers() {
     return [{
       source: "/(.*)",
