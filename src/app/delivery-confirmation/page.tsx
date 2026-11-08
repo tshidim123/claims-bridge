@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Icon } from "@/components/ui/icon";
 
 import styles from "./delivery.module.css";
+import { ShipmentContinuation } from "./shipment-continuation";
 
 const description = "Review your shipment and complete the final step";
 const status = "In Transit";
@@ -127,6 +128,7 @@ export default function DeliveryConfirmationPage() {
             ))}
           </ol>
         </section>
+        <ShipmentContinuation status={status} />
         <p className={styles.previewNote}>Design preview · Sample shipment</p>
       </main>
     </div>

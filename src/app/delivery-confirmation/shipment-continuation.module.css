@@ -1,0 +1,503 @@
+.continuation {
+  display: grid;
+  align-items: start;
+  gap: calc(32 * var(--unit));
+  margin-top: calc(32 * var(--unit));
+}
+
+.card {
+  min-width: 0;
+  border: 1px solid #d3c7b5;
+  border-radius: calc(28 * var(--unit));
+  background: var(--cream);
+  box-shadow: 0 8px 24px rgb(55 35 15 / 6%);
+}
+
+.cardHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(24 * var(--unit)) calc(26 * var(--unit)) calc(19 * var(--unit));
+  border-bottom: 1px solid rgb(107 75 41 / 10%);
+}
+
+.cardHeading h2,
+.cardHeading p {
+  margin: 0;
+}
+
+.cardHeading h2 {
+  font-size: max(16px, calc(23 * var(--unit)));
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.18;
+}
+
+.cardHeading p {
+  max-width: 30ch;
+  margin-top: calc(6 * var(--unit));
+  color: var(--muted);
+  font-size: max(11px, calc(15 * var(--unit)));
+  line-height: 1.35;
+}
+
+.cardHeading .detailsStatus {
+  flex: none;
+  width: calc(135 * var(--unit));
+  min-height: calc(55 * var(--unit));
+  justify-content: center;
+  padding-inline: calc(12 * var(--unit));
+  font-size: max(9px, calc(13 * var(--unit)));
+  line-height: 1.1;
+}
+
+.detailsStatus > span {
+  max-width: 7ch;
+}
+
+.cardBody {
+  padding: calc(25 * var(--unit)) calc(26 * var(--unit)) calc(27 * var(--unit));
+}
+
+.notice,
+.detailTile,
+.cardMethod {
+  border: 1px solid rgb(107 75 41 / 12%);
+  border-radius: calc(14 * var(--unit));
+  background: rgb(115 89 52 / 4%);
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(16 * var(--unit));
+  padding: calc(18 * var(--unit)) calc(20 * var(--unit));
+}
+
+.noticeIcon,
+.methodTitle svg {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: calc(40 * var(--unit));
+  height: calc(40 * var(--unit));
+  border: 1px solid rgb(107 75 41 / 12%);
+  border-radius: calc(12 * var(--unit));
+  background: rgb(115 89 52 / 10%);
+  color: #684825;
+}
+
+.noticeIcon {
+  font-size: max(13px, calc(18 * var(--unit)));
+  font-weight: 800;
+}
+
+.notice p,
+.activity li p,
+.cardMethod p {
+  margin: 0;
+  color: var(--muted);
+  font-size: max(11px, calc(15 * var(--unit)));
+  line-height: 1.48;
+}
+
+.notice .noticeTitle,
+.activity .eventTitle,
+.cardMethod .methodTitle {
+  margin-bottom: calc(4 * var(--unit));
+  color: var(--ink);
+  font-size: max(13px, calc(18 * var(--unit)));
+  font-weight: 700;
+}
+
+.detailsList {
+  display: grid;
+  gap: calc(15 * var(--unit));
+  margin: calc(25 * var(--unit)) 0 0;
+}
+
+.detailTile {
+  display: grid;
+  align-content: center;
+  gap: calc(4 * var(--unit));
+  min-height: calc(86 * var(--unit));
+  padding: calc(12 * var(--unit)) calc(20 * var(--unit));
+}
+
+.detailTile dt,
+.feeTotal dt,
+.paymentMethod h3 {
+  color: var(--muted);
+  font-size: max(10px, calc(13 * var(--unit)));
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.detailTile dd {
+  margin: 0;
+  font-size: max(13px, calc(17 * var(--unit)));
+  font-weight: 700;
+}
+
+.trackingTile dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+
+.trackingTile code {
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+}
+
+.copyButton {
+  min-width: calc(124 * var(--unit));
+  min-height: max(28px, calc(38 * var(--unit)));
+  margin-top: calc(-16 * var(--unit));
+  padding: 3px 8px;
+  border: 1px solid #cbbca7;
+  border-radius: calc(8 * var(--unit));
+  background: rgb(250 244 229 / 60%);
+  color: #594125;
+  font-size: max(10px, calc(13 * var(--unit)));
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.copyButton:hover {
+  background: #ede2d0;
+}
+
+.copyMessage {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.activity {
+  margin-top: calc(30 * var(--unit));
+  padding-top: calc(23 * var(--unit));
+  border-top: 1px solid rgb(107 75 41 / 11%);
+}
+
+.activity h3,
+.paymentMethod h3 {
+  margin: 0 0 calc(17 * var(--unit));
+}
+
+.activity h3 {
+  font-size: max(12px, calc(18 * var(--unit)));
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.activity ol {
+  position: relative;
+  display: grid;
+  gap: calc(20 * var(--unit));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity ol::before {
+  position: absolute;
+  top: calc(12 * var(--unit));
+  bottom: calc(7 * var(--unit));
+  left: calc(7 * var(--unit));
+  width: 1px;
+  background: #a88f6e;
+  content: "";
+}
+
+.activity li {
+  position: relative;
+  padding-left: calc(32 * var(--unit));
+}
+
+.activity li::before {
+  position: absolute;
+  top: calc(4 * var(--unit));
+  left: 0;
+  width: calc(16 * var(--unit));
+  aspect-ratio: 1;
+  border: 1.5px solid #887356;
+  border-radius: 50%;
+  background: var(--cream);
+  content: "";
+}
+
+.activity li[aria-current]::before {
+  border-color: #76502c;
+  background: #76502c;
+  box-shadow: 0 0 0 3px rgb(118 80 44 / 13%);
+}
+
+.currentEvent {
+  display: block;
+  margin-bottom: calc(5 * var(--unit));
+  padding: calc(3 * var(--unit)) calc(11 * var(--unit));
+  border-radius: calc(4 * var(--unit));
+  background: rgb(115 89 52 / 12%);
+  color: #634626;
+  font-size: max(9px, calc(12 * var(--unit)));
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.feeTotal,
+.confirmButton {
+  border: 1px solid #75502b;
+  background: linear-gradient(105deg, #4c3014, #785129);
+  color: #f7e5bc;
+}
+
+.feeTotal {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin: 0;
+  padding: calc(25 * var(--unit)) calc(29 * var(--unit));
+  border-radius: calc(20 * var(--unit));
+  box-shadow: 0 calc(12 * var(--unit)) calc(25 * var(--unit)) rgb(68 43 17 / 18%);
+}
+
+.feeTotal::after {
+  position: absolute;
+  z-index: -1;
+  top: -115%;
+  right: -18%;
+  width: 64%;
+  aspect-ratio: 1;
+  border: calc(32 * var(--unit)) solid rgb(237 184 115 / 6%);
+  border-radius: 50%;
+  content: "";
+}
+
+.feeTotal dt {
+  color: #ead0a1;
+  letter-spacing: 0.2em;
+}
+
+.feeTotal dd {
+  display: flex;
+  align-items: baseline;
+  gap: calc(4 * var(--unit));
+  margin: calc(8 * var(--unit)) 0 0;
+  font-size: max(30px, calc(51 * var(--unit)));
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.feeTotal dd span {
+  font-size: 0.36em;
+  letter-spacing: 0;
+}
+
+.feeBreakdown {
+  margin: calc(25 * var(--unit)) 0;
+}
+
+.feeBreakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: calc(14 * var(--unit)) 0;
+  border-bottom: 1px solid rgb(107 75 41 / 10%);
+  color: var(--muted);
+  font-size: max(12px, calc(16 * var(--unit)));
+}
+
+.feeBreakdown dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.cardMethod {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: calc(16 * var(--unit));
+  padding: calc(19 * var(--unit));
+}
+
+.selectedMethod {
+  display: grid;
+  place-items: center;
+  width: calc(26 * var(--unit));
+  aspect-ratio: 1;
+  margin-top: calc(6 * var(--unit));
+  border: 1.5px solid #887356;
+  border-radius: 50%;
+  background: var(--cream);
+  box-shadow: 0 0 0 3px rgb(118 80 44 / 8%);
+}
+
+.selectedMethod::before {
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #73502d;
+  content: "";
+}
+
+.cardMethod .methodTitle {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--unit));
+  margin-bottom: calc(8 * var(--unit));
+}
+
+.methodTitle svg {
+  width: calc(33 * var(--unit));
+  height: calc(33 * var(--unit));
+  padding: calc(6 * var(--unit));
+  color: #466044;
+}
+
+.cardBrands,
+.paymentAssurances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(7 * var(--unit));
+  margin: calc(9 * var(--unit)) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cardBrands li {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: calc(55 * var(--unit));
+  min-height: calc(30 * var(--unit));
+  padding: 2px calc(7 * var(--unit));
+  border: 1px solid #e4dacb;
+  border-radius: calc(6 * var(--unit));
+  background: #fffdf8;
+  color: #29201a;
+  font-size: max(8px, calc(11 * var(--unit)));
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.cardBrands .visa {
+  color: #193486;
+  font-style: italic;
+}
+
+.mastercard span {
+  width: calc(24 * var(--unit));
+  height: calc(14 * var(--unit));
+  background:
+    radial-gradient(circle at 30% 50%, #dc1633 43%, transparent 46%),
+    radial-gradient(circle at 70% 50%, #f6a114 43%, transparent 46%);
+}
+
+.cardBrands .amex {
+  border-color: #2275a9;
+  background: #2275a9;
+  color: #fff;
+}
+
+.discover span {
+  width: calc(9 * var(--unit));
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #f39a26;
+}
+
+.paymentAssurances {
+  gap: calc(6 * var(--unit)) calc(16 * var(--unit));
+  margin-top: calc(15 * var(--unit));
+  color: #594125;
+  font-size: max(10px, calc(13 * var(--unit)));
+  font-weight: 700;
+}
+
+.confirmButton {
+  width: 100%;
+  min-height: max(44px, calc(62 * var(--unit)));
+  margin-top: calc(24 * var(--unit));
+  padding: 8px 14px;
+  border-radius: calc(13 * var(--unit));
+  box-shadow: 0 5px 12px rgb(68 43 17 / 15%);
+  font-size: max(11px, calc(16 * var(--unit)));
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.confirmButton:hover {
+  background: linear-gradient(105deg, #5b3b1b, #895e31);
+}
+
+.confirmationNote {
+  margin: calc(15 * var(--unit)) 0 0;
+  color: var(--muted);
+  font-size: max(10px, calc(13 * var(--unit)));
+  line-height: 1.4;
+  text-align: center;
+}
+
+.checkoutDialog {
+  position: fixed;
+  inset: 0;
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  margin: auto;
+  padding: 24px;
+  border: 1px solid #cbbca7;
+  border-radius: 18px;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 0 14px 40px rgb(55 35 15 / 22%);
+}
+
+.checkoutDialog::backdrop {
+  background: rgb(37 23 12 / 58%);
+}
+
+.checkoutDialog h2,
+.checkoutDialog p {
+  margin: 0;
+}
+
+.checkoutDialog h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.checkoutDialog p {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+@media (min-width: 900px) {
+  .continuation {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  }
+}
