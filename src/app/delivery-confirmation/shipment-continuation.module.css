@@ -473,40 +473,6 @@
   text-align: center;
 }
 
-.checkoutDialog {
-  position: fixed;
-  inset: 0;
-  width: min(420px, calc(100% - 32px));
-  max-height: calc(100% - 32px);
-  margin: auto;
-  padding: 24px;
-  border: 1px solid #cbbca7;
-  border-radius: 18px;
-  background: var(--cream);
-  color: var(--ink);
-  box-shadow: 0 14px 40px rgb(55 35 15 / 22%);
-}
-
-.checkoutDialog::backdrop {
-  background: rgb(37 23 12 / 58%);
-}
-
-.checkoutDialog h2,
-.checkoutDialog p {
-  margin: 0;
-}
-
-.checkoutDialog h2 {
-  font-size: 1.25rem;
-  font-weight: 800;
-}
-
-.checkoutDialog p {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 0.9375rem;
-}
-
 @media (min-width: 900px) {
   .continuation {
     grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);

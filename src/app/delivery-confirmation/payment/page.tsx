@@ -3,11 +3,11 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 
 import { Icon } from "@/components/ui/icon";
-import { deliveryFee, deliveryPreviewPath } from "@/lib/delivery-preview";
+import { deliveryPreviewPath, deliverySimulationPath } from "@/lib/delivery-preview";
 
 import { CardBrands } from "../card-brands";
 import deliveryStyles from "../delivery.module.css";
-import { CheckoutPreview } from "../shipment-controls";
+import checkoutStyles from "../shipment-continuation.module.css";
 import styles from "./payment.module.css";
 
 const sampleFields = [
@@ -73,7 +73,7 @@ export default function DeliveryPaymentPage() {
               </div>
             ))}
           </dl>
-          <div className={styles.payAction}><CheckoutPreview fee={`R${deliveryFee}`} /></div>
+          <Link className={checkoutStyles.confirmButton} href={deliverySimulationPath}>Open interactive simulation</Link>
         </section>
       </div>
     </main>

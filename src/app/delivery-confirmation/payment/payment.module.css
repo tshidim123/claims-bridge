@@ -250,24 +250,6 @@
   font-size: max(12px, calc(16 * var(--unit)));
 }
 
-.payAction > button {
-  transition: filter 180ms ease, transform 160ms ease, box-shadow 180ms ease;
-}
-
-.payAction > button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 7px 15px rgb(68 43 17 / 22%);
-}
-
-.payAction > button:active {
-  filter: brightness(0.96);
-  transform: translateY(1px);
-}
-
-.payAction dialog[open] {
-  animation: reveal 220ms ease-out both;
-}
-
 @keyframes reveal {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -281,18 +263,11 @@
   .toolbar,
   .card,
   .card::after,
-  .checkout,
-  .payAction dialog[open] {
+  .checkout {
     animation: none;
   }
 
-  .back,
-  .payAction > button {
+  .back {
     transition: none;
-  }
-
-  .payAction > button:hover,
-  .payAction > button:active {
-    transform: none;
   }
 }
