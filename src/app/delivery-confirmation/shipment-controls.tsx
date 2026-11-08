@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 
+import { Icon } from "@/components/ui/icon";
+
 import styles from "./shipment-continuation.module.css";
 
 export function CopyTrackingCode({ trackingCode }: { trackingCode: string }) {
@@ -35,13 +37,13 @@ export function CheckoutPreview({ fee }: { fee: string }) {
   return (
     <>
       <button className={styles.confirmButton} type="button" onClick={() => dialog.current?.showModal()}>
-        Confirm &amp; Continue
+        <Icon name="shield" /> Pay now — {fee}
       </button>
       <dialog ref={dialog} className={styles.checkoutDialog} aria-labelledby="checkout-preview-title" aria-describedby="checkout-preview-description">
-        <h2 id="checkout-preview-title">Checkout preview</h2>
-        <p id="checkout-preview-description">You’ve reviewed the sample shipment and its {fee} shipping fee. This is a design preview.</p>
+        <h2 id="checkout-preview-title">Demo checkout complete</h2>
+        <p id="checkout-preview-description">You’ve completed the preview for the {fee} sample shipping fee.</p>
         <form method="dialog">
-          <button className={styles.confirmButton} type="submit">Back to shipment</button>
+          <button className={styles.confirmButton} type="submit">Back to checkout</button>
         </form>
       </dialog>
     </>

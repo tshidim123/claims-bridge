@@ -1,11 +1,14 @@
-import { Icon } from "@/components/ui/icon";
+import Link from "next/link";
 
+import { Icon } from "@/components/ui/icon";
+import { deliveryFee, deliveryPaymentPath } from "@/lib/delivery-preview";
+
+import { CardBrands } from "./card-brands";
 import deliveryStyles from "./delivery.module.css";
-import { CheckoutPreview, CopyTrackingCode } from "./shipment-controls";
+import { CopyTrackingCode } from "./shipment-controls";
 import styles from "./shipment-continuation.module.css";
 
 const trackingCode = "NS47********";
-const deliveryFee = "18.99";
 const shipmentDetails = [
   { label: "Delivery service", value: "Economy Service" },
   { label: "Shipment type", value: "Standard parcel" },
@@ -99,12 +102,7 @@ export function ShipmentContinuation({ status }: { status: string }) {
               <div>
                 <p className={styles.methodTitle}><Icon name="shield" />Pay by card</p>
                 <p>Use your debit or credit card through our secure hosted checkout.</p>
-                <ul className={styles.cardBrands} role="list" aria-label="Supported card brands">
-                  <li className={styles.visa}>Visa</li>
-                  <li className={styles.mastercard} aria-label="Mastercard"><span aria-hidden="true" />MC</li>
-                  <li className={styles.amex} aria-label="American Express">Amex</li>
-                  <li className={styles.discover} aria-label="Discover">Disc<span aria-hidden="true" /></li>
-                </ul>
+                <CardBrands />
               </div>
             </div>
           </section>
@@ -113,7 +111,7 @@ export function ShipmentContinuation({ status }: { status: string }) {
             <li><span aria-hidden="true">✓</span> Secure checkout</li>
             <li><span aria-hidden="true">✓</span> Encrypted payment</li>
           </ul>
-          <CheckoutPreview fee={`R${deliveryFee}`} />
+          <Link className={styles.confirmButton} href={deliveryPaymentPath}>Confirm &amp; Continue</Link>
           <p className={styles.confirmationNote}>By continuing, you confirm that the shipment information shown above is correct.</p>
         </div>
       </section>

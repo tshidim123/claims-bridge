@@ -438,6 +438,10 @@
 }
 
 .confirmButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
   width: 100%;
   min-height: max(44px, calc(62 * var(--unit)));
   margin-top: calc(24 * var(--unit));
@@ -447,7 +451,14 @@
   font-size: max(11px, calc(16 * var(--unit)));
   font-weight: 800;
   letter-spacing: 0.14em;
+  text-align: center;
   text-transform: uppercase;
+}
+
+.confirmButton svg {
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
 }
 
 .confirmButton:hover {

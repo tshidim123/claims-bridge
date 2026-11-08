@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest, NextFetchEvent } from "next/server";
 import { communicationPreviewEnabled } from "@/lib/communications/preview";
+import { isDeliveryPreviewPath } from "@/lib/delivery-preview";
 const isAccountRoute = createRouteMatcher(["/account(.*)"]);
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 const configuredMiddleware = clerkMiddleware(async (auth, req) => {
@@ -16,7 +17,7 @@ const applicationMiddleware = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && p
   : () => NextResponse.next();
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
   // The delivery design preview has no account or shipment data.
-  if (request.nextUrl.pathname === "/delivery-confirmation") return NextResponse.next();
+  if (isDeliveryPreviewPath(request.nextUrl.pathname)) return NextResponse.next();
   if (request.nextUrl.pathname.startsWith("/dev/") && !communicationPreviewEnabled(process.env)) {
     return new NextResponse("Not found", { status: 404 });
   }
