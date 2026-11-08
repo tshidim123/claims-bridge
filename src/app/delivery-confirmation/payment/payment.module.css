@@ -4,37 +4,65 @@
     linear-gradient(148deg, #2d1d0e 8%, #3d2812 57%, #5c3c1a);
 }
 
+.simulationBanner {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  border-bottom: 1px solid #c39d5d;
+  background: #f5e5bf;
+  color: #3f2d18;
+  box-shadow: 0 4px 14px rgb(25 15 6 / 20%);
+}
+
+.simulationBannerInner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: min(100%, 570px);
+  margin-inline: auto;
+  padding: 11px var(--side);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.simulationBannerInner svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: #795329;
+}
+
+.simulationBannerInner strong {
+  font-weight: 800;
+}
+
+.simulationBannerInner p {
+  margin: 2px 0 0;
+}
+
 .shell {
   width: min(100%, 570px);
   margin-inline: auto;
-  padding: calc(54 * var(--unit)) var(--side) calc(48 * var(--unit));
+  padding: calc(28 * var(--unit)) var(--side) calc(48 * var(--unit));
 }
 
 .toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   animation: reveal 260ms ease-out both;
 }
 
-.back,
-.badge {
+.back {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4em;
   padding: 5px calc(15 * var(--unit));
-  font-weight: 700;
-}
-
-.back {
   min-height: 36px;
   border: 1px solid rgb(245 214 163 / 25%);
   border-radius: calc(12 * var(--unit));
   background: rgb(251 222 174 / 7%);
   color: #f5e2bf;
   font-size: max(11px, calc(15 * var(--unit)));
+  font-weight: 700;
   transition: background-color 180ms ease, border-color 180ms ease;
 }
 
@@ -47,27 +75,11 @@
   outline-color: #efce92;
 }
 
-.back svg,
-.badge svg,
-.notice svg {
+.back svg {
   flex: none;
   width: 1.15em;
   height: 1.15em;
-}
-
-.back svg {
   transform: rotate(180deg);
-}
-
-.badge {
-  min-height: 26px;
-  border: 1px solid #5a7153;
-  border-radius: 999px;
-  background: #364833;
-  color: #e4eed8;
-  font-size: max(10px, calc(13 * var(--unit)));
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .card {
@@ -238,24 +250,7 @@
   font-size: max(12px, calc(16 * var(--unit)));
 }
 
-.notice {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5em;
-  margin: 0;
-  padding: 8px;
-  border: 1px solid #cfdbc6;
-  border-radius: calc(11 * var(--unit));
-  background: #edf0e3;
-  color: #3e5b42;
-  font-size: max(10px, calc(13 * var(--unit)));
-  font-weight: 700;
-  text-align: center;
-}
-
 .payAction > button {
-  margin-top: calc(14 * var(--unit));
   transition: filter 180ms ease, transform 160ms ease, box-shadow 180ms ease;
 }
 

@@ -30,12 +30,20 @@ export const viewport: Viewport = { colorScheme: "light", themeColor: "#2e1c0b" 
 export default function DeliveryPaymentPage() {
   return (
     <main className={`${deliveryStyles.page} ${styles.paymentPage} ${GeistSansNonVariable.className}`} id="main-content">
+      <aside className={styles.simulationBanner} aria-labelledby="checkout-simulation-title">
+        <div className={styles.simulationBannerInner}>
+          <Icon name="shield" />
+          <div>
+            <strong id="checkout-simulation-title">Checkout simulation</strong>
+            <p>Use sample details only. Never enter real card details or bank verification codes.</p>
+          </div>
+        </div>
+      </aside>
       <div className={styles.shell}>
         <header className={styles.toolbar}>
           <Link className={styles.back} href={`${deliveryPreviewPath}#payment-summary-title`}>
             <Icon name="arrow" /> Back to confirmation
           </Link>
-          <span className={styles.badge}><Icon name="shield" /> Demo</span>
         </header>
 
         <div className={styles.card} aria-hidden="true">
@@ -65,7 +73,6 @@ export default function DeliveryPaymentPage() {
               </div>
             ))}
           </dl>
-          <p className={styles.notice}><Icon name="shield" /> Demo checkout · Sample details only</p>
           <div className={styles.payAction}><CheckoutPreview fee={`R${deliveryFee}`} /></div>
         </section>
       </div>
